@@ -1,0 +1,57 @@
+# ============================================================
+#  Amplex CRM – Docker Compose
+# ============================================================
+#  Uso:
+#    cp .env.example .env   # ajustar variáveis
+#    docker compose up -d --build
+# ============================================================
+
+services:
+
+  # ── Banco de Dados ──
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${AMPLEX_DB_NAME:-amplex}
+      POSTGRES_USER: ${AMPLEX_DB_USER:-amplex}
+      POSTGRES_PASSWORD: ${AMPLEX_DB_PASSWORD:-amplex}
+    ports:
+      - "${AMPLEX_DB_PORT:-5435}:5432"
+    volumes:
+      - amplex_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AMPLEX_DB_USER:-amplex}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Backend (FastAPI) ──
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "${AMPLEX_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      AMPLEX_DATABASE_URL: postgresql://${AMPLEX_DB_USER:-amplex}:${AMPLEX_DB_PASSWORD:-amplex}@db:5432/${AMPLEX_DB_NAME:-amplex}
+    volumes:
+      - ./backend/app:/opt/amplex/app
+      - amplex_files:/var/lib/amplex/files
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # ── Frontend (React) ──
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${AMPLEX_FRONTEND_PORT:-3003}:3003"
+    depends_on:
+      - backend
+
+volumes:
+  amplex_pgdata:
+  amplex_files:
