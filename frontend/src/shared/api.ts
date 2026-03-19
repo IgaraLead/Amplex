@@ -1,23 +1,58 @@
 const API = '/amplex/api';
 
-function getToken(): string | null {
-  return localStorage.getItem('hub_token');
+// ── Org context for API path resolution ──
+let _orgId: number | null = null;
+
+export function setApiOrgId(id: number | null) {
+  _orgId = id;
+}
+
+export function getApiOrgId(): number | null {
+  return _orgId;
+}
+
+/** Resolve path with org prefix: /crm/... → /o/{orgId}/crm/... */
+function resolveOrgPath(path: string): string {
+  if (!_orgId) return path;
+  if (path.startsWith('/crm/') || path === '/crm') {
+    return `/o/${_orgId}${path}`;
+  }
+  // /permissions/ was previously mounted under /crm/permissions
+  if (path.startsWith('/permissions/') || path === '/permissions') {
+    return `/o/${_orgId}/crm${path}`;
+  }
+  return path;
+}
+
+/** Build full CRM API URL (for window.open, direct fetch, etc.) */
+export function crmUrl(path: string): string {
+  return `${API}${resolveOrgPath(path)}`;
+}
+
+function getCsrfToken(): string {
+  const match = document.cookie.match(/(?:^|;\s*)amplex_csrf=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : '';
 }
 
 export async function apiFetch<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
   };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
   if (options.body && typeof options.body === 'string') {
     headers['Content-Type'] = 'application/json';
   }
+  if (options.method && options.method !== 'GET') {
+    const csrf = getCsrfToken();
+    if (csrf) headers['X-CSRF-Token'] = csrf;
+  }
 
-  const res = await fetch(`${API}${path}`, { ...options, headers });
+  const res = await fetch(`${API}${resolveOrgPath(path)}`, {
+    ...options,
+    headers,
+    credentials: 'include',
+  });
 
   if (res.status === 401) {
-    localStorage.removeItem('hub_token');
     if (window.location.pathname !== '/login') {
       window.location.href = '/login';
     }
@@ -48,15 +83,18 @@ export function apiDelete(path: string) {
 }
 
 export async function apiUpload<T = unknown>(path: string, formData: FormData): Promise<T> {
-  const token = getToken();
   const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  // Do NOT set Content-Type for FormData — browser sets it with boundary
+  const csrf = getCsrfToken();
+  if (csrf) headers['X-CSRF-Token'] = csrf;
 
-  const res = await fetch(`${API}${path}`, { method: 'POST', headers, body: formData });
+  const res = await fetch(`${API}${resolveOrgPath(path)}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+    credentials: 'include',
+  });
 
   if (res.status === 401) {
-    localStorage.removeItem('hub_token');
     if (window.location.pathname !== '/login') window.location.href = '/login';
     throw new Error('Sessão expirada');
   }
@@ -68,10 +106,7 @@ export async function apiUpload<T = unknown>(path: string, formData: FormData): 
 }
 
 export function apiDownload(path: string, filename: string) {
-  const token = getToken();
-  return fetch(`${API}${path}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
+  return fetch(`${API}${resolveOrgPath(path)}`, { credentials: 'include' })
     .then(r => r.blob())
     .then(blob => {
       const url = URL.createObjectURL(blob);

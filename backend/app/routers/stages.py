@@ -1,17 +1,25 @@
 """Stage management routes."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.auth import CurrentUser, get_current_user, require_admin
+from app.auth import CurrentUser, get_org_context, require_org_admin
 from app.database import get_db
-from app.models import Stage, Lead
+from app.models import Lead, Stage
 
-router = APIRouter(prefix="/amplex/api/crm", tags=["stages"])
+router = APIRouter(prefix="/amplex/api/o/{org_id}/crm", tags=["stages"])
 
 
 @router.get("/stages")
-def list_stages(db: Session = Depends(get_db), current_user: CurrentUser = Depends(get_current_user)):
-    stages = db.query(Stage).order_by(Stage.sequence).all()
+def list_stages(
+    db: Session = Depends(get_db), current_user: CurrentUser = Depends(get_org_context)
+):
+    stages = (
+        db.query(Stage)
+        .filter(Stage.org_id == current_user.org_id)
+        .order_by(Stage.sequence)
+        .all()
+    )
     return {
         "stages": [
             {"id": s.id, "name": s.name, "sequence": s.sequence, "is_won": s.is_won}
@@ -24,17 +32,23 @@ def list_stages(db: Session = Depends(get_db), current_user: CurrentUser = Depen
 def create_stage(
     body: dict,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_org_admin),
 ):
     name = (body.get("name") or "").strip()
     if not name:
         raise HTTPException(400, "name is required")
 
-    last = db.query(Stage).order_by(Stage.sequence.desc()).first()
+    last = (
+        db.query(Stage)
+        .filter(Stage.org_id == current_user.org_id)
+        .order_by(Stage.sequence.desc())
+        .first()
+    )
     seq = (last.sequence + 1) if last else 1
 
     stage = Stage(
         name=name,
+        org_id=current_user.org_id,
         sequence=body.get("sequence", seq),
         is_won=body.get("is_won", False),
     )
@@ -50,9 +64,13 @@ def update_stage(
     stage_id: int,
     body: dict,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_org_admin),
 ):
-    stage = db.query(Stage).filter(Stage.id == stage_id).first()
+    stage = (
+        db.query(Stage)
+        .filter(Stage.id == stage_id, Stage.org_id == current_user.org_id)
+        .first()
+    )
     if not stage:
         raise HTTPException(404, "Not found")
 
@@ -65,22 +83,37 @@ def update_stage(
 
     db.commit()
     db.refresh(stage)
-    return {"id": stage.id, "name": stage.name, "sequence": stage.sequence, "is_won": stage.is_won}
+    return {
+        "id": stage.id,
+        "name": stage.name,
+        "sequence": stage.sequence,
+        "is_won": stage.is_won,
+    }
 
 
 @router.delete("/stages/{stage_id}")
 def delete_stage(
     stage_id: int,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_org_admin),
 ):
-    stage = db.query(Stage).filter(Stage.id == stage_id).first()
+    stage = (
+        db.query(Stage)
+        .filter(Stage.id == stage_id, Stage.org_id == current_user.org_id)
+        .first()
+    )
     if not stage:
         raise HTTPException(404, "Not found")
 
-    count = db.query(Lead).filter(Lead.stage_id == stage.id).count()
+    count = (
+        db.query(Lead)
+        .filter(Lead.stage_id == stage.id, Lead.org_id == current_user.org_id)
+        .count()
+    )
     if count > 0:
-        raise HTTPException(400, f"Estágio possui {count} oportunidades. Mova-as antes de excluir.")
+        raise HTTPException(
+            400, f"Estágio possui {count} oportunidades. Mova-as antes de excluir."
+        )
 
     db.delete(stage)
     db.commit()

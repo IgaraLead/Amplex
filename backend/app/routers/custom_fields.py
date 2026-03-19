@@ -1,21 +1,29 @@
 """Custom field definition and lead-value routes."""
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.auth import CurrentUser, get_current_user, require_admin
+from app.auth import CurrentUser, get_org_context, require_org_admin
 from app.database import get_db
 from app.models import CustomField, CustomFieldValue, Lead
 
-router = APIRouter(prefix="/amplex/api/crm", tags=["custom-fields"])
+router = APIRouter(prefix="/amplex/api/o/{org_id}/crm", tags=["custom-fields"])
 
 VALID_FIELD_TYPES = ("text", "number", "date", "select", "checkbox")
 
 
 # ── Global definitions ──
 
+
 @router.get("/custom-fields")
-def list_custom_fields(db: Session = Depends(get_db), current_user: CurrentUser = Depends(get_current_user)):
-    fields = db.query(CustomField).filter(CustomField.active.is_(True)).all()
+def list_custom_fields(
+    db: Session = Depends(get_db), current_user: CurrentUser = Depends(get_org_context)
+):
+    fields = (
+        db.query(CustomField)
+        .filter(CustomField.active.is_(True), CustomField.org_id == current_user.org_id)
+        .all()
+    )
     return {
         "items": [
             {
@@ -35,7 +43,7 @@ def list_custom_fields(db: Session = Depends(get_db), current_user: CurrentUser 
 def create_custom_field(
     body: dict,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_org_admin),
 ):
     name = (body.get("name") or "").strip()
     field_type = body.get("field_type", "text")
@@ -46,6 +54,7 @@ def create_custom_field(
 
     cf = CustomField(
         name=name,
+        org_id=current_user.org_id,
         field_type=field_type,
         options=body.get("options", ""),
         required=body.get("required", False),
@@ -61,9 +70,13 @@ def update_custom_field(
     field_id: int,
     body: dict,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_org_admin),
 ):
-    cf = db.query(CustomField).filter(CustomField.id == field_id).first()
+    cf = (
+        db.query(CustomField)
+        .filter(CustomField.id == field_id, CustomField.org_id == current_user.org_id)
+        .first()
+    )
     if not cf:
         raise HTTPException(404, "Not found")
 
@@ -85,9 +98,13 @@ def update_custom_field(
 def delete_custom_field(
     field_id: int,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(require_admin),
+    current_user: CurrentUser = Depends(require_org_admin),
 ):
-    cf = db.query(CustomField).filter(CustomField.id == field_id).first()
+    cf = (
+        db.query(CustomField)
+        .filter(CustomField.id == field_id, CustomField.org_id == current_user.org_id)
+        .first()
+    )
     if not cf:
         raise HTTPException(404, "Not found")
 
@@ -98,17 +115,24 @@ def delete_custom_field(
 
 # ── Lead-scoped values ──
 
+
 @router.get("/leads/{lead_id}/custom-fields")
 def list_lead_custom_fields(
     lead_id: int,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_org_context),
 ):
-    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    lead = (
+        db.query(Lead)
+        .filter(Lead.id == lead_id, Lead.org_id == current_user.org_id)
+        .first()
+    )
     if not lead:
         raise HTTPException(404, "Not found")
 
-    values = db.query(CustomFieldValue).filter(CustomFieldValue.lead_id == lead.id).all()
+    values = (
+        db.query(CustomFieldValue).filter(CustomFieldValue.lead_id == lead.id).all()
+    )
     return {
         "items": [
             {
@@ -129,9 +153,13 @@ def set_lead_custom_field(
     lead_id: int,
     body: dict,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_org_context),
 ):
-    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    lead = (
+        db.query(Lead)
+        .filter(Lead.id == lead_id, Lead.org_id == current_user.org_id)
+        .first()
+    )
     if not lead:
         raise HTTPException(404, "Not found")
 
@@ -141,13 +169,22 @@ def set_lead_custom_field(
     if not field_id:
         raise HTTPException(400, "field_id is required")
 
-    definition = db.query(CustomField).filter(CustomField.id == int(field_id)).first()
+    definition = (
+        db.query(CustomField)
+        .filter(
+            CustomField.id == int(field_id), CustomField.org_id == current_user.org_id
+        )
+        .first()
+    )
     if not definition:
         raise HTTPException(404, "Field definition not found")
 
     existing = (
         db.query(CustomFieldValue)
-        .filter(CustomFieldValue.lead_id == lead.id, CustomFieldValue.field_id == definition.id)
+        .filter(
+            CustomFieldValue.lead_id == lead.id,
+            CustomFieldValue.field_id == definition.id,
+        )
         .first()
     )
     if existing:
@@ -182,12 +219,16 @@ def delete_lead_custom_field(
     lead_id: int,
     value_id: int,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_org_context),
 ):
-    rec = db.query(CustomFieldValue).filter(
-        CustomFieldValue.id == value_id,
-        CustomFieldValue.lead_id == lead_id,
-    ).first()
+    rec = (
+        db.query(CustomFieldValue)
+        .filter(
+            CustomFieldValue.id == value_id,
+            CustomFieldValue.lead_id == lead_id,
+        )
+        .first()
+    )
     if not rec:
         raise HTTPException(404, "Not found")
 

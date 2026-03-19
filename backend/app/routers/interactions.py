@@ -1,16 +1,16 @@
 """Timeline / Interaction routes."""
+
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from typing import Optional
 
-from app.auth import CurrentUser, get_current_user
+from app.auth import CurrentUser, get_org_context
 from app.database import get_db
-from app.models import Lead, Interaction, InteractionFile, Activity
+from app.models import Activity, Interaction, InteractionFile, Lead
 from app.storage import save_file
 
-router = APIRouter(prefix="/amplex/api/crm", tags=["interactions"])
+router = APIRouter(prefix="/amplex/api/o/{org_id}/crm", tags=["interactions"])
 
 VALID_TYPES = ("phone", "email", "whatsapp", "meeting", "visit", "note")
 TYPE_LABELS = {
@@ -28,9 +28,13 @@ ACTIVITY_TYPE_MAP = {"phone": "phone", "email": "email", "meeting": "meeting"}
 def list_interactions(
     lead_id: int,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_org_context),
 ):
-    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    lead = (
+        db.query(Lead)
+        .filter(Lead.id == lead_id, Lead.org_id == current_user.org_id)
+        .first()
+    )
     if not lead:
         raise HTTPException(404, "Not found")
 
@@ -44,19 +48,21 @@ def list_interactions(
 
     items = []
     for inter in interactions:
-        items.append({
-            "id": inter.id,
-            "type": inter.interaction_type,
-            "body": inter.body or "",
-            "preview": inter.preview or "",
-            "date": inter.created_at,
-            "author_name": inter.author.name if inter.author else "",
-            "author_id": inter.author_id,
-            "attachments": [
-                {"id": f.id, "name": f.filename, "size": f.file_size}
-                for f in inter.files
-            ],
-        })
+        items.append(
+            {
+                "id": inter.id,
+                "type": inter.interaction_type,
+                "body": inter.body or "",
+                "preview": inter.preview or "",
+                "date": inter.created_at,
+                "author_name": inter.author.name if inter.author else "",
+                "author_id": inter.author_id,
+                "attachments": [
+                    {"id": f.id, "name": f.filename, "size": f.file_size}
+                    for f in inter.files
+                ],
+            }
+        )
 
     return {"items": items, "total": len(items)}
 
@@ -66,9 +72,13 @@ async def create_interaction(
     lead_id: int,
     request: Request,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_org_context),
 ):
-    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    lead = (
+        db.query(Lead)
+        .filter(Lead.id == lead_id, Lead.org_id == current_user.org_id)
+        .first()
+    )
     if not lead:
         raise HTTPException(404, "Not found")
 

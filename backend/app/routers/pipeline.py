@@ -1,13 +1,14 @@
 """Pipeline (Kanban) routes."""
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.auth import CurrentUser, get_current_user
+from app.auth import CurrentUser, get_org_context
 from app.database import get_db
 from app.models import Lead, Stage
 
-router = APIRouter(prefix="/amplex/api/crm", tags=["pipeline"])
+router = APIRouter(prefix="/amplex/api/o/{org_id}/crm", tags=["pipeline"])
 
 
 @router.get("/pipeline")
@@ -18,9 +19,9 @@ def pipeline(
     min_value: float = Query(None),
     max_value: float = Query(None),
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_org_context),
 ):
-    filters = [Lead.active.is_(True)]
+    filters = [Lead.active.is_(True), Lead.org_id == current_user.org_id]
     if type in ("lead", "opportunity"):
         filters.append(Lead.type == type)
 
@@ -45,7 +46,12 @@ def pipeline(
         filters.append(Lead.expected_revenue <= max_value)
 
     columns = []
-    for stage in db.query(Stage).order_by(Stage.sequence).all():
+    for stage in (
+        db.query(Stage)
+        .filter(Stage.org_id == current_user.org_id)
+        .order_by(Stage.sequence)
+        .all()
+    ):
         stage_filters = filters + [Lead.stage_id == stage.id]
         leads = (
             db.query(Lead)
@@ -57,28 +63,35 @@ def pipeline(
         count = db.query(Lead).filter(*stage_filters).count()
         cards = []
         for lead in leads:
-            cards.append({
-                "id": lead.id,
-                "name": lead.name,
-                "contact_name": lead.contact_name or "",
-                "partner_name": lead.contact.name if lead.contact else "",
-                "email_from": lead.email_from or "",
-                "phone": lead.phone or "",
-                "expected_revenue": lead.expected_revenue or 0,
-                "probability": lead.probability or 0,
-                "priority": lead.priority or "0",
-                "create_date": lead.created_at,
-                "tag_ids": [{"id": t.id, "name": t.name, "color": t.color} for t in lead.tags],
-                "user_id": lead.user_id,
-                "user_name": lead.user.name if lead.user else "",
-            })
-        columns.append({
-            "id": stage.id,
-            "name": stage.name,
-            "sequence": stage.sequence,
-            "is_won": stage.is_won,
-            "count": count,
-            "cards": cards,
-        })
+            cards.append(
+                {
+                    "id": lead.id,
+                    "name": lead.name,
+                    "contact_name": lead.contact_name or "",
+                    "partner_name": lead.contact.name if lead.contact else "",
+                    "email_from": lead.email_from or "",
+                    "phone": lead.phone or "",
+                    "expected_revenue": lead.expected_revenue or 0,
+                    "probability": lead.probability or 0,
+                    "priority": lead.priority or "0",
+                    "create_date": lead.created_at,
+                    "tag_ids": [
+                        {"id": t.id, "name": t.name, "color": t.color}
+                        for t in lead.tags
+                    ],
+                    "user_id": lead.user_id,
+                    "user_name": lead.user.name if lead.user else "",
+                }
+            )
+        columns.append(
+            {
+                "id": stage.id,
+                "name": stage.name,
+                "sequence": stage.sequence,
+                "is_won": stage.is_won,
+                "count": count,
+                "cards": cards,
+            }
+        )
 
     return {"columns": columns}

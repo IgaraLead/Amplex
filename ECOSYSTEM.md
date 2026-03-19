@@ -58,6 +58,10 @@ O Amplex é o **CRM do ecossistema**, construído sobre Odoo com customização 
 | `GET /amplex/api/contacts/search` | Nexus, Entity | Buscar contatos |
 | `POST /amplex/api/contacts/import` | Entity | Importar contatos enriquecidos |
 
+## Política de API
+
+**Sem APIs abertas.** O Amplex não expõe endpoints para consumo externo ou por terceiros. Os endpoints de integração (`/amplex/api/*`) são de uso exclusivamente interno entre as plataformas do ecossistema, protegidos por `X-Api-Key`. Clientes acessam o Amplex apenas via interface web.
+
 ## Notas de operação
 
 - Login por senha bloqueado quando IgaraHub OAuth está ativo

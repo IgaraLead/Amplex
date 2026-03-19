@@ -1,13 +1,14 @@
 """Contact routes."""
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import or_, func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
-from app.auth import CurrentUser, get_current_user
+from app.auth import CurrentUser, get_org_context
 from app.database import get_db
 from app.models import Contact, Lead
 
-router = APIRouter(prefix="/amplex/api/crm", tags=["contacts"])
+router = APIRouter(prefix="/amplex/api/o/{org_id}/crm", tags=["contacts"])
 
 
 @router.get("/contacts")
@@ -17,10 +18,10 @@ def list_contacts(
     search: str = Query(None),
     type: str = Query(None),
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_org_context),
 ):
     offset = (page - 1) * limit
-    filters = [Contact.active.is_(True)]
+    filters = [Contact.active.is_(True), Contact.org_id == current_user.org_id]
 
     if type == "company":
         filters.append(Contact.is_company.is_(True))
@@ -48,20 +49,29 @@ def list_contacts(
 
     items = []
     for c in contacts:
-        opp_count = db.query(func.count(Lead.id)).filter(
-            Lead.contact_id == c.id, Lead.active.is_(True)
-        ).scalar() or 0
-        items.append({
-            "id": c.id,
-            "name": c.name,
-            "email": c.email or "",
-            "phone": c.phone or "",
-            "mobile": c.mobile or "",
-            "is_company": c.is_company,
-            "city": c.city or "",
-            "state": c.state_name or "",
-            "opportunity_count": opp_count,
-        })
+        opp_count = (
+            db.query(func.count(Lead.id))
+            .filter(
+                Lead.contact_id == c.id,
+                Lead.active.is_(True),
+                Lead.org_id == current_user.org_id,
+            )
+            .scalar()
+            or 0
+        )
+        items.append(
+            {
+                "id": c.id,
+                "name": c.name,
+                "email": c.email or "",
+                "phone": c.phone or "",
+                "mobile": c.mobile or "",
+                "is_company": c.is_company,
+                "city": c.city or "",
+                "state": c.state_name or "",
+                "opportunity_count": opp_count,
+            }
+        )
 
     return {
         "items": items,
@@ -76,7 +86,7 @@ def list_contacts(
 def create_contact(
     body: dict,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_org_context),
 ):
     name = (body.get("name") or "").strip()
     if not name:
@@ -84,6 +94,7 @@ def create_contact(
 
     contact = Contact(
         name=name,
+        org_id=current_user.org_id,
         email=body.get("email", ""),
         phone=body.get("phone", ""),
         mobile=body.get("mobile", ""),
@@ -103,9 +114,13 @@ def create_contact(
 def get_contact(
     contact_id: int,
     db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_org_context),
 ):
-    contact = db.query(Contact).filter(Contact.id == contact_id).first()
+    contact = (
+        db.query(Contact)
+        .filter(Contact.id == contact_id, Contact.org_id == current_user.org_id)
+        .first()
+    )
     if not contact:
         raise HTTPException(404, "Not found")
 
