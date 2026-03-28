@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { Home, BarChart3, MessageSquare, Search } from 'lucide-react';
 import { apiGet } from '../api';
+import { HUB_NAME, AMPLEX_NAME, NEXUS_NAME, ENTITY_NAME } from '../branding';
 
 interface Product {
   key: string;
@@ -14,7 +15,7 @@ interface Product {
 const PRODUCTS: Product[] = [
   {
     key: 'hub',
-    name: 'Hub',
+    name: HUB_NAME,
     description: 'Painel Central',
     url: '',
     icon: <Home size={16} />,
@@ -22,7 +23,7 @@ const PRODUCTS: Product[] = [
   },
   {
     key: 'amplex',
-    name: 'Amplex',
+    name: AMPLEX_NAME,
     description: 'CRM',
     url: '',
     icon: <BarChart3 size={16} />,
@@ -30,7 +31,7 @@ const PRODUCTS: Product[] = [
   },
   {
     key: 'nexus',
-    name: 'Nexus',
+    name: NEXUS_NAME,
     description: 'Atendimento',
     url: '',
     icon: <MessageSquare size={16} />,
@@ -38,7 +39,7 @@ const PRODUCTS: Product[] = [
   },
   {
     key: 'entity',
-    name: 'Entity',
+    name: ENTITY_NAME,
     description: 'Dados CNPJ',
     url: '',
     icon: <Search size={16} />,
@@ -53,7 +54,8 @@ export default function ProductSwitcher() {
 
   useEffect(() => {
     apiGet('/crm/config')
-      .then((data: any) => {
+      .then((raw: unknown) => {
+        const data = raw as Record<string, string> | null;
         if (!data) return;
         const urls: Record<string, string> = {
           hub: data.hub_url || '',

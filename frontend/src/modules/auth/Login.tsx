@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../shared/store';
 import Logo from '../../shared/ui/Logo';
+import { BRAND_NAME, HUB_NAME, AMPLEX_NAME } from '../../shared/branding';
 
 const HUB_URL = import.meta.env.VITE_HUB_URL || 'http://localhost:8001';
 
@@ -97,10 +98,10 @@ export default function Login() {
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <Logo size={56} style={{ margin: '0 auto 1rem', color: '#fff' }} />
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '0.25rem' }}>
-            <span className="brand-name">Amplex</span>
+            <span className="brand-name">{AMPLEX_NAME}</span>
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            CRM Inteligente IgaraLead
+            CRM Inteligente {BRAND_NAME}
           </p>
         </div>
 
@@ -249,7 +250,7 @@ export default function Login() {
               fontWeight: 500,
             }}
           >
-            Entrar via IgaraHub SSO
+            Entrar via {HUB_NAME} SSO
           </button>
         </div>
 
@@ -261,7 +262,7 @@ export default function Login() {
             color: 'var(--text-light)',
           }}
         >
-          © {new Date().getFullYear()} IgaraLead
+          © {new Date().getFullYear()} {BRAND_NAME}
         </p>
       </div>
     </div>

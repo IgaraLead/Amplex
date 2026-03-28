@@ -7,6 +7,7 @@ import os
 import time
 import uuid
 from collections import defaultdict
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,6 +33,7 @@ from app.routers import (
     orgs,
     permissions,
     pipeline,
+    s2s,
     sources,
     stages,
     tags,
@@ -70,12 +72,16 @@ if ENVIRONMENT == "production":
     if _missing:
         raise RuntimeError(f"Production requires these env vars: {', '.join(_missing)}")
 
-FRONTEND_URL = os.getenv("AMPLEX_FRONTEND_URL", "http://localhost:5173")
-ALLOWED_ORIGINS = [
-    o.strip()
-    for o in os.getenv("AMPLEX_CORS_ORIGINS", FRONTEND_URL).split(",")
-    if o.strip()
-] or [FRONTEND_URL]
+_DOMAIN = os.getenv("IGARALEAD_DOMAIN", "")
+_AMPLEX_URL = f"https://amplex.{_DOMAIN}" if _DOMAIN else ""
+
+FRONTEND_URL = os.getenv("AMPLEX_FRONTEND_URL", _AMPLEX_URL or "http://localhost:5173")
+if os.getenv("AMPLEX_CORS_ORIGINS"):
+    ALLOWED_ORIGINS = [o.strip() for o in os.getenv("AMPLEX_CORS_ORIGINS").split(",") if o.strip()]
+elif _DOMAIN:
+    ALLOWED_ORIGINS = [f"https://{p}.{_DOMAIN}" for p in ("amplex", "hub")]
+else:
+    ALLOWED_ORIGINS = [FRONTEND_URL]
 
 RATE_LIMIT_RPM = int(os.getenv("AMPLEX_RATE_LIMIT_RPM", "120"))
 AUTH_RATE_LIMIT_RPM = int(os.getenv("AMPLEX_AUTH_RATE_LIMIT_RPM", "10"))
@@ -153,11 +159,18 @@ async def csrf_middleware(request: Request, call_next):
 @app.middleware("http")
 async def request_body_limit_middleware(request: Request, call_next):
     content_length = request.headers.get("content-length")
-    if content_length and int(content_length) > MAX_REQUEST_BODY:
-        return JSONResponse(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            content={"detail": "Request body muito grande."},
-        )
+    if content_length:
+        try:
+            if int(content_length) > MAX_REQUEST_BODY:
+                return JSONResponse(
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                    content={"detail": "Request body muito grande."},
+                )
+        except (ValueError, OverflowError):
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"detail": "Content-Length inválido."},
+            )
     return await call_next(request)
 
 
@@ -221,12 +234,15 @@ app.include_router(attachments.router)
 app.include_router(config.router)
 app.include_router(permissions.router)
 app.include_router(orgs.router)
+app.include_router(s2s.router)
 
 
 @app.on_event("startup")
 def on_startup():
     Base.metadata.create_all(bind=engine)
-    logger.info("Amplex CRM backend started — tables ensured")
+    from app.storage import ensure_bucket
+    ensure_bucket()
+    logger.info("Amplex CRM backend started — tables and S3 bucket ensured")
 
 
 @app.exception_handler(Exception)
@@ -247,6 +263,17 @@ def health(db: Session = Depends(get_db)):
     except Exception:
         checks["database"] = "error"
 
+    try:
+        from app.database import SharedSessionLocal
+        shared_db = SharedSessionLocal()
+        try:
+            shared_db.execute(text("SELECT 1"))
+            checks["shared_database"] = "ok"
+        finally:
+            shared_db.close()
+    except Exception:
+        checks["shared_database"] = "error"
+
     healthy = all(v in ("ok", "unavailable") for v in checks.values())
     return JSONResponse(
         status_code=status.HTTP_200_OK
@@ -259,3 +286,18 @@ def health(db: Session = Depends(get_db)):
             "checks": checks,
         },
     )
+
+
+# ── Serve frontend static files in production ────────────────────────────────
+STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+if STATIC_DIR.is_dir():
+    from fastapi.responses import FileResponse
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        file = (STATIC_DIR / full_path).resolve()
+        if not file.is_relative_to(STATIC_DIR.resolve()):
+            return JSONResponse(status_code=403, content={"detail": "Forbidden"})
+        if file.is_file():
+            return FileResponse(file)
+        return FileResponse(STATIC_DIR / "index.html")

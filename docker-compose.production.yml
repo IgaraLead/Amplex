@@ -1,32 +1,19 @@
 # ============================================================
-#  Amplex CRM – Docker Compose (Production)
+#  Amplex – Docker Compose (Production)
 # ============================================================
-#  Puxa imagens do ghcr.io geradas pelo CI.
+#  Imagem full-stack: FastAPI serve API + frontend estático.
+#  Conecta ao postgres da stack Infra via rede igaralead_public.
+#  A stack Infra (docker-compose.core.yml ou full.yml) deve estar rodando.
 #
 #  Uso:
-#    export GHCR_OWNER=<seu-usuario-ou-org>
-#    cp .env.example .env  # ajustar variáveis
+#    cp .env.example .env && vi .env
 #    docker compose -f docker-compose.production.yml up -d
 # ============================================================
 
 services:
-  db:
-    image: postgres:16-alpine
-    restart: always
-    environment:
-      POSTGRES_DB: ${AMPLEX_DB_NAME}
-      POSTGRES_USER: ${AMPLEX_DB_USER}
-      POSTGRES_PASSWORD: ${AMPLEX_DB_PASSWORD}
-    volumes:
-      - amplex_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AMPLEX_DB_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  backend:
-    image: ghcr.io/${GHCR_OWNER}/amplex-backend:latest
+  amplex:
+    image: ghcr.io/${GHCR_OWNER}/amplex:latest
+    container_name: amplex
     restart: always
     logging:
       driver: json-file
@@ -36,26 +23,13 @@ services:
     ports:
       - "127.0.0.1:8002:8000"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       ENVIRONMENT: production
-      AMPLEX_DATABASE_URL: postgresql://${AMPLEX_DB_USER}:${AMPLEX_DB_PASSWORD}@db:5432/${AMPLEX_DB_NAME}
-      AMPLEX_COOKIE_DOMAIN: ${AMPLEX_COOKIE_DOMAIN:-.igaralead.com.br}
-      AMPLEX_HUB_JWKS_URL: ${AMPLEX_HUB_JWKS_URL:-https://hub.igaralead.com.br/.well-known/jwks.json}
-    volumes:
-      - amplex_files:/var/lib/amplex/files
-    depends_on:
-      db:
-        condition: service_healthy
+    networks:
+      - igaralead_public
 
-  frontend:
-    image: ghcr.io/${GHCR_OWNER}/amplex-frontend:latest
-    restart: always
-    ports:
-      - "127.0.0.1:3003:3003"
-    depends_on:
-      - backend
-
-volumes:
-  amplex_pgdata:
-  amplex_files:
+networks:
+  igaralead_public:
+    external: true

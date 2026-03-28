@@ -5,8 +5,9 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-FROM nginx:alpine
-COPY --from=build /app/dist /app/dist
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 3003
-CMD ["nginx", "-g", "daemon off;"]
+FROM node:20-alpine
+RUN npm install -g serve@latest
+WORKDIR /app
+COPY --from=build /app/dist ./dist
+EXPOSE 3000
+CMD ["serve", "-s", "dist", "-l", "tcp://0.0.0.0:3000"]

@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../shared/api';
 import { useAuth } from '../../shared/store';
 import { useToast } from '../../shared/ui/Toast';
+import { BRAND_NAME, AMPLEX_NAME } from '../../shared/branding';
 import { Pencil, Trash2, Check, X, Shield } from 'lucide-react';
 
 interface Stage {
@@ -141,12 +142,12 @@ function ProfileTab() {
           <div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Produto</span>
             <p style={{ fontSize: '0.9rem' }}>
-              <span className="brand-name">Amplex</span> CRM
+              <span className="brand-name">{AMPLEX_NAME}</span> CRM
             </p>
           </div>
           <div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Plataforma</span>
-            <p style={{ fontSize: '0.9rem', color: '#fff' }}>IgaraLead</p>
+            <p style={{ fontSize: '0.9rem', color: '#fff' }}>{BRAND_NAME}</p>
           </div>
           <div>
             <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Versão</span>

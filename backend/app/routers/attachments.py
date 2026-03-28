@@ -200,8 +200,10 @@ def download_attachment(
         raise HTTPException(404, "Not found")
 
     file_data = read_stored_file(att.storage_path)
+    from urllib.parse import quote
+    safe_name = quote(att.filename, safe="-_.~ ")
     return Response(
         content=file_data,
         media_type=att.mimetype or "application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{att.filename}"'},
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{safe_name}"},
     )

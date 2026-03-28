@@ -10,6 +10,16 @@ export default function OrgSelect() {
     if (!user && !loading) fetchUser();
   }, []);
 
+  const orgs = user?.organizations ?? [];
+
+  // Auto-select when user belongs to a single org
+  useEffect(() => {
+    if (orgs.length === 1) {
+      setCurrentOrg(orgs[0]);
+      navigate(`/o/${orgs[0].id}/dashboard`, { replace: true });
+    }
+  }, [orgs.length]);
+
   if (loading) {
     return (
       <div
@@ -29,16 +39,6 @@ export default function OrgSelect() {
     navigate('/login', { replace: true });
     return null;
   }
-
-  const orgs = user.organizations ?? [];
-
-  // Auto-select when user belongs to a single org
-  useEffect(() => {
-    if (orgs.length === 1) {
-      setCurrentOrg(orgs[0]);
-      navigate(`/o/${orgs[0].id}/dashboard`, { replace: true });
-    }
-  }, [orgs.length]);
 
   if (orgs.length === 0) {
     return (

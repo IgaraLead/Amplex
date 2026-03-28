@@ -152,6 +152,7 @@ async def enrich_cnpj(
                         d = enriched["data"]
                         info_parts = []
                         if isinstance(d, dict):
+                            from html import escape as _esc
                             for key in [
                                 "razao_social",
                                 "nome_fantasia",
@@ -165,7 +166,7 @@ async def enrich_cnpj(
                                 "capital_social",
                             ]:
                                 if d.get(key):
-                                    info_parts.append(f"{key}: {d[key]}")
+                                    info_parts.append(f"{key}: {_esc(str(d[key]))}")
                         if info_parts:
                             existing = lead.description or ""
                             separator = (
@@ -195,15 +196,16 @@ def integration_search_lead(
 
     filters = []
     if phone:
-        suffix = phone[-9:]
+        suffix = phone[-9:].replace("%", "\\%").replace("_", "\\_")
         filters.append(
             or_(
-                Lead.phone.ilike(f"%{suffix}%"),
-                Lead.mobile.ilike(f"%{suffix}%"),
+                Lead.phone.ilike(f"%{suffix}%", escape="\\"),
+                Lead.mobile.ilike(f"%{suffix}%", escape="\\"),
             )
         )
     if email:
-        filters.append(Lead.email_from.ilike(email))
+        safe_email = email.replace("%", "\\%").replace("_", "\\_")
+        filters.append(Lead.email_from.ilike(safe_email, escape="\\"))
 
     if len(filters) > 1:
         combined = or_(*filters)

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../store';
 import { apiGet, apiPost, apiDelete } from '../api';
 import Logo from '../ui/Logo';
+import { BRAND_NAME, BRAND_URL, HUB_NAME, NEXUS_NAME, ENTITY_NAME, AMPLEX_NAME } from '../branding';
 import { Home, BarChart3, MessageSquare, Search, Check, X, Menu } from 'lucide-react';
 
 interface NavItem {
@@ -88,10 +89,10 @@ interface PlatformItem {
 }
 
 const STATIC_PLATFORMS: PlatformItem[] = [
-  { key: 'hub', name: 'Hub', url: '', icon: <Home size={14} /> },
-  { key: 'entity', name: 'Entity', url: '', icon: <Search size={14} /> },
-  { key: 'amplex', name: 'Amplex', url: '', icon: <BarChart3 size={14} /> },
-  { key: 'nexus', name: 'Nexus', url: '', icon: <MessageSquare size={14} /> },
+  { key: 'hub', name: HUB_NAME, url: '', icon: <Home size={14} /> },
+  { key: 'entity', name: ENTITY_NAME, url: '', icon: <Search size={14} /> },
+  { key: 'amplex', name: AMPLEX_NAME, url: '', icon: <BarChart3 size={14} /> },
+  { key: 'nexus', name: NEXUS_NAME, url: '', icon: <MessageSquare size={14} /> },
 ];
 
 export default function AppLayout() {
@@ -126,7 +127,8 @@ export default function AppLayout() {
   useEffect(() => {
     if (!currentOrg) return;
     apiGet('/crm/config')
-      .then((data: any) => {
+      .then((raw: unknown) => {
+        const data = raw as Record<string, string> | null;
         if (!data) return;
         const urls: Record<string, string> = {
           hub: data.hub_url || '',
@@ -669,7 +671,7 @@ export default function AppLayout() {
                 <Logo size={36} style={{ flexShrink: 0, color: '#fff' }} />
                 <div style={{ minWidth: 0 }}>
                   <h2 style={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1.2 }}>
-                    <span className="brand-name">Amplex</span>
+                    <span className="brand-name">{AMPLEX_NAME}</span>
                   </h2>
                   <p
                     style={{
@@ -770,14 +772,14 @@ export default function AppLayout() {
         >
           © {new Date().getFullYear()}{' '}
           <a
-            href="https://igaralead.com.br"
+            href={BRAND_URL}
             target="_blank"
             rel="noopener noreferrer"
             style={{ color: 'rgba(255,255,255,0.55)', textDecoration: 'none', fontWeight: 500 }}
             onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
             onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.55)')}
           >
-            IgaraLead
+            {BRAND_NAME}
           </a>
           . Todos os direitos reservados.
         </footer>

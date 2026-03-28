@@ -104,7 +104,8 @@ async def create_interaction(
         interaction_type = "note"
 
     label = TYPE_LABELS.get(interaction_type, "📝 Nota")
-    html_body = f"<p><strong>{label}</strong></p><p>{description}</p>"
+    from html import escape as _esc
+    html_body = f"<p><strong>{_esc(label)}</strong></p><p>{_esc(description)}</p>"
 
     interaction = Interaction(
         lead_id=lead.id,
