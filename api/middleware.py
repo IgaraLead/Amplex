@@ -76,8 +76,6 @@ class BodyLimitMiddleware:
 
 _AUTH_RATE_PATHS = {
     "/amplex/api/auth/login",
-    "/amplex/api/auth/hub-exchange",
-    "/amplex/api/auth/oauth-exchange",
 }
 
 
