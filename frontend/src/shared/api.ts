@@ -1,25 +1,24 @@
 const API = '/amplex/api';
 
 // ── Org context for API path resolution ──
-let _orgId: number | null = null;
+let _slug: string | null = null;
 
-export function setApiOrgId(id: number | null) {
-  _orgId = id;
+export function setApiOrgSlug(slug: string | null) {
+  _slug = slug;
 }
 
-export function getApiOrgId(): number | null {
-  return _orgId;
+export function getApiOrgSlug(): string | null {
+  return _slug;
 }
 
-/** Resolve path with org prefix: /crm/... → /o/{orgId}/crm/... */
+/** Resolve path with org prefix: /crm/... → /id/{slug}/crm/... */
 function resolveOrgPath(path: string): string {
-  if (!_orgId) return path;
+  if (!_slug) return path;
   if (path.startsWith('/crm/') || path === '/crm') {
-    return `/o/${_orgId}${path}`;
+    return `/id/${_slug}${path}`;
   }
-  // /permissions/ was previously mounted under /crm/permissions
   if (path.startsWith('/permissions/') || path === '/permissions') {
-    return `/o/${_orgId}/crm${path}`;
+    return `/id/${_slug}/crm${path}`;
   }
   return path;
 }
@@ -43,7 +42,10 @@ export async function apiFetch<T = unknown>(path: string, options: RequestInit =
   }
   if (options.method && options.method !== 'GET') {
     const csrf = getCsrfToken();
-    if (csrf) headers['X-CSRF-Token'] = csrf;
+    if (!csrf) {
+      throw new Error('CSRF token ausente. Sessão pode ter expirado.');
+    }
+    headers['X-CSRF-Token'] = csrf;
   }
 
   const res = await fetch(`${API}${resolveOrgPath(path)}`, {

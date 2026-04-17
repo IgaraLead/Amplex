@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { apiGet, apiPost, apiDownload } from '../../shared/api';
-import { useToast } from '../../shared/ui/Toast';
+import { useToast } from '../../shared/ui/useToast';
 import { Download, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface ContactsResponse {
@@ -184,7 +184,7 @@ export default function Contacts() {
                     <td>{contact.opportunity_count || '—'}</td>
                   </tr>
                 ))}
-                {data?.items.length === 0 && (
+                {data?.items?.length === 0 && (
                   <tr>
                     <td
                       colSpan={6}
@@ -234,156 +234,154 @@ export default function Contacts() {
           }}
           onClick={() => setShowModal(false)}
         >
-          <div
-            className="glass"
-            style={{ width: '100%', maxWidth: 480, padding: '2rem' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <h2
-              style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff', marginBottom: '1.5rem' }}
-            >
-              Novo Contato
-            </h2>
-            <form
-              onSubmit={e => {
-                e.preventDefault();
-                createMutation.mutate(newContact);
-              }}
-              style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
-            >
-              <div>
+          <div className="card bg-base-300 w-full max-w-lg" onClick={e => e.stopPropagation()}>
+            <div className="card-body">
+              <h2 className="text-lg font-bold mb-6">Novo Contato</h2>
+              <form
+                onSubmit={e => {
+                  e.preventDefault();
+                  createMutation.mutate(newContact);
+                }}
+                style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+              >
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '0.8rem',
+                      color: 'var(--text-muted)',
+                      marginBottom: '0.3rem',
+                    }}
+                  >
+                    Nome *
+                  </label>
+                  <input
+                    className="input"
+                    required
+                    value={newContact.name}
+                    onChange={e => setNewContact({ ...newContact, name: e.target.value })}
+                    placeholder="Nome do contato ou empresa"
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '0.8rem',
+                        color: 'var(--text-muted)',
+                        marginBottom: '0.3rem',
+                      }}
+                    >
+                      E-mail
+                    </label>
+                    <input
+                      className="input"
+                      type="email"
+                      value={newContact.email}
+                      onChange={e => setNewContact({ ...newContact, email: e.target.value })}
+                      placeholder="email@empresa.com"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '0.8rem',
+                        color: 'var(--text-muted)',
+                        marginBottom: '0.3rem',
+                      }}
+                    >
+                      Telefone
+                    </label>
+                    <input
+                      className="input"
+                      value={newContact.phone}
+                      onChange={e => setNewContact({ ...newContact, phone: e.target.value })}
+                      placeholder="+55 11 99999-9999"
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '0.8rem',
+                        color: 'var(--text-muted)',
+                        marginBottom: '0.3rem',
+                      }}
+                    >
+                      Cidade
+                    </label>
+                    <input
+                      className="input"
+                      value={newContact.city}
+                      onChange={e => setNewContact({ ...newContact, city: e.target.value })}
+                      placeholder="São Paulo"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      style={{
+                        display: 'block',
+                        fontSize: '0.8rem',
+                        color: 'var(--text-muted)',
+                        marginBottom: '0.3rem',
+                      }}
+                    >
+                      CNPJ
+                    </label>
+                    <input
+                      className="input"
+                      value={newContact.cnpj}
+                      onChange={e => setNewContact({ ...newContact, cnpj: e.target.value })}
+                      placeholder="00.000.000/0001-00"
+                    />
+                  </div>
+                </div>
                 <label
                   style={{
-                    display: 'block',
-                    fontSize: '0.8rem',
-                    color: 'var(--text-muted)',
-                    marginBottom: '0.3rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.85rem',
+                    color: 'var(--text)',
+                    cursor: 'pointer',
                   }}
                 >
-                  Nome *
+                  <input
+                    type="checkbox"
+                    checked={newContact.is_company}
+                    onChange={e => setNewContact({ ...newContact, is_company: e.target.checked })}
+                  />
+                  É empresa
                 </label>
-                <input
-                  className="input"
-                  required
-                  value={newContact.name}
-                  onChange={e => setNewContact({ ...newContact, name: e.target.value })}
-                  placeholder="Nome do contato ou empresa"
-                />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: '0.8rem',
-                      color: 'var(--text-muted)',
-                      marginBottom: '0.3rem',
-                    }}
-                  >
-                    E-mail
-                  </label>
-                  <input
-                    className="input"
-                    type="email"
-                    value={newContact.email}
-                    onChange={e => setNewContact({ ...newContact, email: e.target.value })}
-                    placeholder="email@empresa.com"
-                  />
-                </div>
-                <div>
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: '0.8rem',
-                      color: 'var(--text-muted)',
-                      marginBottom: '0.3rem',
-                    }}
-                  >
-                    Telefone
-                  </label>
-                  <input
-                    className="input"
-                    value={newContact.phone}
-                    onChange={e => setNewContact({ ...newContact, phone: e.target.value })}
-                    placeholder="+55 11 99999-9999"
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: '0.8rem',
-                      color: 'var(--text-muted)',
-                      marginBottom: '0.3rem',
-                    }}
-                  >
-                    Cidade
-                  </label>
-                  <input
-                    className="input"
-                    value={newContact.city}
-                    onChange={e => setNewContact({ ...newContact, city: e.target.value })}
-                    placeholder="São Paulo"
-                  />
-                </div>
-                <div>
-                  <label
-                    style={{
-                      display: 'block',
-                      fontSize: '0.8rem',
-                      color: 'var(--text-muted)',
-                      marginBottom: '0.3rem',
-                    }}
-                  >
-                    CNPJ
-                  </label>
-                  <input
-                    className="input"
-                    value={newContact.cnpj}
-                    onChange={e => setNewContact({ ...newContact, cnpj: e.target.value })}
-                    placeholder="00.000.000/0001-00"
-                  />
-                </div>
-              </div>
-              <label
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  fontSize: '0.85rem',
-                  color: 'var(--text)',
-                  cursor: 'pointer',
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={newContact.is_company}
-                  onChange={e => setNewContact({ ...newContact, is_company: e.target.checked })}
-                />
-                É empresa
-              </label>
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '0.75rem',
-                  justifyContent: 'flex-end',
-                  marginTop: '0.5rem',
-                }}
-              >
-                <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={createMutation.isPending}
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '0.75rem',
+                    justifyContent: 'flex-end',
+                    marginTop: '0.5rem',
+                  }}
                 >
-                  {createMutation.isPending ? 'Criando...' : 'Criar Contato'}
-                </button>
-              </div>
-            </form>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => setShowModal(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={createMutation.isPending}
+                  >
+                    {createMutation.isPending ? 'Criando...' : 'Criar Contato'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

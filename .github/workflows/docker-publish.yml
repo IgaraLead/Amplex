@@ -24,12 +24,16 @@ jobs:
           python-version: "3.12"
 
       - name: Install backend dependencies
-        working-directory: backend
-        run: pip install ruff -r requirements.txt
+        run: pip install black ruff pytest pytest-django -r requirements.txt
+
+      - name: Format check
+        run: black --check api/ amplex/ tests/
 
       - name: Lint backend
-        working-directory: backend
-        run: ruff check .
+        run: ruff check api/ amplex/ tests/ --config ruff.toml
+
+      - name: Test backend
+        run: python -m pytest tests/ --tb=short -v
 
       - uses: actions/setup-node@v4
         with:
@@ -45,7 +49,7 @@ jobs:
 
       - name: Lint frontend
         working-directory: frontend
-        run: npm run lint
+        run: npx eslint .
 
   build:
     runs-on: ubuntu-latest

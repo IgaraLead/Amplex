@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../shared/api';
 import { useAuth } from '../../shared/store';
-import { useToast } from '../../shared/ui/Toast';
+import { useToast } from '../../shared/ui/useToast';
 import { BRAND_NAME, AMPLEX_NAME } from '../../shared/branding';
 import { Pencil, Trash2, Check, X, Shield } from 'lucide-react';
 
@@ -109,49 +109,49 @@ export default function Settings() {
 function ProfileTab() {
   const { user } = useAuth();
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', maxWidth: 800 }}>
-      <div className="glass" style={{ padding: '1.5rem' }}>
-        <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}>
-          Perfil
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Nome</span>
-            <p style={{ fontSize: '0.9rem', color: '#fff' }}>{user?.name}</p>
-          </div>
-          <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>E-mail</span>
-            <p style={{ fontSize: '0.9rem', color: '#fff' }}>{user?.email}</p>
-          </div>
-          <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Papel</span>
-            <p style={{ fontSize: '0.9rem', color: '#fff' }}>
-              <span className="badge badge-info">
-                {user?.role === 'admin' ? 'Gestor' : 'Vendedor'}
-              </span>
-            </p>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+      <div className="card bg-base-300">
+        <div className="card-body">
+          <h3 className="text-sm font-semibold mb-4">Perfil</h3>
+          <div className="flex flex-col gap-3">
+            <div>
+              <span className="text-xs text-base-content/50">Nome</span>
+              <p className="text-sm">{user?.name}</p>
+            </div>
+            <div>
+              <span className="text-xs text-base-content/50">E-mail</span>
+              <p className="text-sm">{user?.email}</p>
+            </div>
+            <div>
+              <span className="text-xs text-base-content/50">Papel</span>
+              <p className="text-sm">
+                <span className="badge badge-info">
+                  {user?.role === 'admin' ? 'Gestor' : 'Vendedor'}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="glass" style={{ padding: '1.5rem' }}>
-        <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}>
-          Sobre
-        </h3>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Produto</span>
-            <p style={{ fontSize: '0.9rem' }}>
-              <span className="brand-name">{AMPLEX_NAME}</span> CRM
-            </p>
-          </div>
-          <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Plataforma</span>
-            <p style={{ fontSize: '0.9rem', color: '#fff' }}>{BRAND_NAME}</p>
-          </div>
-          <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Versão</span>
-            <p style={{ fontSize: '0.9rem', color: '#fff' }}>0.2.0</p>
+      <div className="card bg-base-300">
+        <div className="card-body">
+          <h3 className="text-sm font-semibold mb-4">Sobre</h3>
+          <div className="flex flex-col gap-3">
+            <div>
+              <span className="text-xs text-base-content/50">Produto</span>
+              <p className="text-sm">
+                <span className="brand-name">{AMPLEX_NAME}</span> CRM
+              </p>
+            </div>
+            <div>
+              <span className="text-xs text-base-content/50">Plataforma</span>
+              <p className="text-sm">{BRAND_NAME}</p>
+            </div>
+            <div>
+              <span className="text-xs text-base-content/50">Versão</span>
+              <p className="text-sm">0.2.0</p>
+            </div>
           </div>
         </div>
       </div>
@@ -203,113 +203,117 @@ function StagesTab({ addToast, queryClient }: { addToast: any; queryClient: any 
   const stages = data?.stages || [];
 
   return (
-    <div className="glass" style={{ padding: '1.5rem', maxWidth: 600 }}>
-      <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}>
-        Estágios do Pipeline
-      </h3>
+    <div className="card bg-base-300 max-w-xl">
+      <div className="card-body">
+        <h3 className="text-sm font-semibold mb-4">Estágios do Pipeline</h3>
 
-      <form
-        onSubmit={e => {
-          e.preventDefault();
-          if (newName.trim()) createMutation.mutate(newName.trim());
-        }}
-        style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}
-      >
-        <input
-          className="input"
-          placeholder="Novo estágio..."
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <button className="btn btn-primary btn-sm" type="submit" disabled={!newName.trim()}>
-          Adicionar
-        </button>
-      </form>
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            if (newName.trim()) createMutation.mutate(newName.trim());
+          }}
+          style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}
+        >
+          <input
+            className="input"
+            placeholder="Novo estágio..."
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <button className="btn btn-primary btn-sm" type="submit" disabled={!newName.trim()}>
+            Adicionar
+          </button>
+        </form>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-        {stages.map(s => (
-          <div
-            key={s.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.5rem 0.75rem',
-              borderRadius: '6px',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            {editingId === s.id ? (
-              <>
-                <input
-                  className="input"
-                  value={editName}
-                  onChange={e => setEditName(e.target.value)}
-                  style={{ flex: 1, padding: '0.3rem 0.5rem' }}
-                  autoFocus
-                />
-                <button
-                  className="btn btn-primary btn-sm"
-                  onClick={() => updateMutation.mutate({ id: s.id, name: editName })}
-                  style={{ padding: '0.25rem 0.5rem' }}
-                >
-                  <Check size={14} />
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setEditingId(null)}
-                  style={{ padding: '0.25rem 0.5rem' }}
-                >
-                  <X size={14} />
-                </button>
-              </>
-            ) : (
-              <>
-                <span style={{ flex: 1, fontSize: '0.85rem', color: '#fff' }}>
-                  {s.name}
-                  {s.is_won && (
-                    <span
-                      style={{
-                        color: 'var(--success)',
-                        marginLeft: '0.5rem',
-                        fontSize: '0.75rem',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '0.2rem',
-                      }}
-                    >
-                      <Check size={12} /> Ganho
-                    </span>
-                  )}
-                </span>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                  #{s.sequence}
-                </span>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => {
-                    setEditingId(s.id);
-                    setEditName(s.name);
-                  }}
-                  style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem' }}
-                >
-                  <Pencil size={13} />
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => {
-                    if (confirm(`Excluir estágio "${s.name}"?`)) deleteMutation.mutate(s.id);
-                  }}
-                  style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem', color: 'var(--danger)' }}
-                >
-                  <Trash2 size={13} />
-                </button>
-              </>
-            )}
-          </div>
-        ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          {stages.map(s => (
+            <div
+              key={s.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 0.75rem',
+                borderRadius: '6px',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              {editingId === s.id ? (
+                <>
+                  <input
+                    className="input"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    style={{ flex: 1, padding: '0.3rem 0.5rem' }}
+                    autoFocus
+                  />
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => updateMutation.mutate({ id: s.id, name: editName })}
+                    style={{ padding: '0.25rem 0.5rem' }}
+                  >
+                    <Check size={14} />
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setEditingId(null)}
+                    style={{ padding: '0.25rem 0.5rem' }}
+                  >
+                    <X size={14} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span style={{ flex: 1, fontSize: '0.85rem', color: '#fff' }}>
+                    {s.name}
+                    {s.is_won && (
+                      <span
+                        style={{
+                          color: 'var(--success)',
+                          marginLeft: '0.5rem',
+                          fontSize: '0.75rem',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.2rem',
+                        }}
+                      >
+                        <Check size={12} /> Ganho
+                      </span>
+                    )}
+                  </span>
+                  <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                    #{s.sequence}
+                  </span>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      setEditingId(s.id);
+                      setEditName(s.name);
+                    }}
+                    style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem' }}
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      if (confirm(`Excluir estágio "${s.name}"?`)) deleteMutation.mutate(s.id);
+                    }}
+                    style={{
+                      padding: '0.2rem 0.4rem',
+                      fontSize: '0.75rem',
+                      color: 'var(--danger)',
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -346,61 +350,61 @@ function ReasonsTab({ addToast, queryClient }: { addToast: any; queryClient: any
   const reasons = data?.items || [];
 
   return (
-    <div className="glass" style={{ padding: '1.5rem', maxWidth: 600 }}>
-      <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}>
-        Motivos de Perda
-      </h3>
+    <div className="card bg-base-300 max-w-xl">
+      <div className="card-body">
+        <h3 className="text-sm font-semibold mb-4">Motivos de Perda</h3>
 
-      <form
-        onSubmit={e => {
-          e.preventDefault();
-          if (newName.trim()) createMutation.mutate(newName.trim());
-        }}
-        style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}
-      >
-        <input
-          className="input"
-          placeholder="Novo motivo..."
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <button className="btn btn-primary btn-sm" type="submit" disabled={!newName.trim()}>
-          Adicionar
-        </button>
-      </form>
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            if (newName.trim()) createMutation.mutate(newName.trim());
+          }}
+          style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}
+        >
+          <input
+            className="input"
+            placeholder="Novo motivo..."
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <button className="btn btn-primary btn-sm" type="submit" disabled={!newName.trim()}>
+            Adicionar
+          </button>
+        </form>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-        {reasons.map(r => (
-          <div
-            key={r.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.5rem 0.75rem',
-              borderRadius: '6px',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <span style={{ flex: 1, fontSize: '0.85rem', color: '#fff' }}>{r.name}</span>
-            <button
-              className="btn btn-ghost btn-sm"
-              onClick={() => {
-                if (confirm(`Arquivar motivo "${r.name}"?`)) deleteMutation.mutate(r.id);
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          {reasons.map(r => (
+            <div
+              key={r.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 0.75rem',
+                borderRadius: '6px',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid var(--border)',
               }}
-              style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem', color: 'var(--danger)' }}
             >
-              <Trash2 size={13} />
-            </button>
-          </div>
-        ))}
-        {reasons.length === 0 && (
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Nenhum motivo cadastrado
-          </p>
-        )}
+              <span style={{ flex: 1, fontSize: '0.85rem', color: '#fff' }}>{r.name}</span>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => {
+                  if (confirm(`Arquivar motivo "${r.name}"?`)) deleteMutation.mutate(r.id);
+                }}
+                style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem', color: 'var(--danger)' }}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
+          ))}
+          {reasons.length === 0 && (
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              Nenhum motivo cadastrado
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -428,52 +432,52 @@ function SourcesTab({ addToast, queryClient }: { addToast: any; queryClient: any
   const sources = data?.items || [];
 
   return (
-    <div className="glass" style={{ padding: '1.5rem', maxWidth: 600 }}>
-      <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}>
-        Origens de Leads
-      </h3>
+    <div className="card bg-base-300 max-w-xl">
+      <div className="card-body">
+        <h3 className="text-sm font-semibold mb-4">Origens de Leads</h3>
 
-      <form
-        onSubmit={e => {
-          e.preventDefault();
-          if (newName.trim()) createMutation.mutate(newName.trim());
-        }}
-        style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}
-      >
-        <input
-          className="input"
-          placeholder="Nova origem..."
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          style={{ flex: 1 }}
-        />
-        <button className="btn btn-primary btn-sm" type="submit" disabled={!newName.trim()}>
-          Adicionar
-        </button>
-      </form>
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            if (newName.trim()) createMutation.mutate(newName.trim());
+          }}
+          style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}
+        >
+          <input
+            className="input"
+            placeholder="Nova origem..."
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            style={{ flex: 1 }}
+          />
+          <button className="btn btn-primary btn-sm" type="submit" disabled={!newName.trim()}>
+            Adicionar
+          </button>
+        </form>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-        {sources.map(s => (
-          <div
-            key={s.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.5rem 0.75rem',
-              borderRadius: '6px',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <span style={{ flex: 1, fontSize: '0.85rem', color: '#fff' }}>{s.name}</span>
-          </div>
-        ))}
-        {sources.length === 0 && (
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-            Nenhuma origem cadastrada
-          </p>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          {sources.map(s => (
+            <div
+              key={s.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 0.75rem',
+                borderRadius: '6px',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <span style={{ flex: 1, fontSize: '0.85rem', color: '#fff' }}>{s.name}</span>
+            </div>
+          ))}
+          {sources.length === 0 && (
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+              Nenhuma origem cadastrada
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -516,179 +520,176 @@ function UsersTab({ addToast, queryClient }: { addToast: any; queryClient: any }
   const users = Array.isArray(data) ? data : data?.users || [];
 
   return (
-    <div className="glass" style={{ padding: '1.5rem', maxWidth: 700 }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '1rem',
-        }}
-      >
-        <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff' }}>
-          Gerenciar Usuários (Hub)
-        </h3>
-        <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(!showCreate)}>
-          {showCreate ? 'Cancelar' : '+ Novo Usuário'}
-        </button>
-      </div>
+    <div className="card bg-base-300 max-w-2xl">
+      <div className="card-body">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-sm font-semibold">Gerenciar Usuários (Hub)</h3>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(!showCreate)}>
+            {showCreate ? 'Cancelar' : '+ Novo Usuário'}
+          </button>
+        </div>
 
-      {showCreate && (
-        <form
-          onSubmit={e => {
-            e.preventDefault();
-            createMutation.mutate(newUser);
-          }}
-          style={{
-            marginBottom: '1.25rem',
-            padding: '1rem',
-            borderRadius: '8px',
-            background: 'rgba(255,255,255,0.03)',
-            border: '1px solid var(--border)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
-          }}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-            <div>
-              <label
-                style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--text-muted)',
-                  display: 'block',
-                  marginBottom: '0.2rem',
-                }}
-              >
-                Nome *
-              </label>
-              <input
-                className="input"
-                required
-                value={newUser.name}
-                onChange={e => setNewUser({ ...newUser, name: e.target.value })}
-              />
-            </div>
-            <div>
-              <label
-                style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--text-muted)',
-                  display: 'block',
-                  marginBottom: '0.2rem',
-                }}
-              >
-                E-mail *
-              </label>
-              <input
-                className="input"
-                type="email"
-                required
-                value={newUser.email}
-                onChange={e => setNewUser({ ...newUser, email: e.target.value })}
-              />
-            </div>
-            <div>
-              <label
-                style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--text-muted)',
-                  display: 'block',
-                  marginBottom: '0.2rem',
-                }}
-              >
-                Senha *
-              </label>
-              <input
-                className="input"
-                type="password"
-                required
-                minLength={6}
-                value={newUser.password}
-                onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-              />
-            </div>
-            <div>
-              <label
-                style={{
-                  fontSize: '0.75rem',
-                  color: 'var(--text-muted)',
-                  display: 'block',
-                  marginBottom: '0.2rem',
-                }}
-              >
-                Papel
-              </label>
-              <select
-                className="select"
-                value={newUser.role}
-                onChange={e => setNewUser({ ...newUser, role: e.target.value })}
-              >
-                <option value="user">Vendedor</option>
-                <option value="admin">Gestor</option>
-              </select>
-            </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button
-              className="btn btn-primary btn-sm"
-              type="submit"
-              disabled={createMutation.isPending}
-            >
-              {createMutation.isPending ? 'Criando...' : 'Criar Usuário'}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {isLoading ? (
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Carregando...</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-          {users.map(u => (
-            <div
-              key={u.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                padding: '0.6rem 0.75rem',
-                borderRadius: '6px',
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <div style={{ flex: 1 }}>
-                <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 500 }}>
-                  {u.name}
-                </span>
-                <span
-                  style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '0.5rem' }}
+        {showCreate && (
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              createMutation.mutate(newUser);
+            }}
+            style={{
+              marginBottom: '1.25rem',
+              padding: '1rem',
+              borderRadius: '8px',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem',
+            }}
+          >
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--text-muted)',
+                    display: 'block',
+                    marginBottom: '0.2rem',
+                  }}
                 >
-                  {u.email}
-                </span>
+                  Nome *
+                </label>
+                <input
+                  className="input"
+                  required
+                  value={newUser.name}
+                  onChange={e => setNewUser({ ...newUser, name: e.target.value })}
+                />
               </div>
-              <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>
-                {u.role === 'admin' || u.role === 'super_admin' ? 'Gestor' : 'Vendedor'}
-              </span>
+              <div>
+                <label
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--text-muted)',
+                    display: 'block',
+                    marginBottom: '0.2rem',
+                  }}
+                >
+                  E-mail *
+                </label>
+                <input
+                  className="input"
+                  type="email"
+                  required
+                  value={newUser.email}
+                  onChange={e => setNewUser({ ...newUser, email: e.target.value })}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--text-muted)',
+                    display: 'block',
+                    marginBottom: '0.2rem',
+                  }}
+                >
+                  Senha *
+                </label>
+                <input
+                  className="input"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={newUser.password}
+                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
+                />
+              </div>
+              <div>
+                <label
+                  style={{
+                    fontSize: '0.75rem',
+                    color: 'var(--text-muted)',
+                    display: 'block',
+                    marginBottom: '0.2rem',
+                  }}
+                >
+                  Papel
+                </label>
+                <select
+                  className="select"
+                  value={newUser.role}
+                  onChange={e => setNewUser({ ...newUser, role: e.target.value })}
+                >
+                  <option value="user">Vendedor</option>
+                  <option value="admin">Gestor</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <button
-                className="btn btn-ghost btn-sm"
-                onClick={() => {
-                  if (confirm(`Desativar "${u.name}"?`)) deleteMutation.mutate(u.id);
-                }}
-                style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem', color: 'var(--danger)' }}
+                className="btn btn-primary btn-sm"
+                type="submit"
+                disabled={createMutation.isPending}
               >
-                Desativar
+                {createMutation.isPending ? 'Criando...' : 'Criar Usuário'}
               </button>
             </div>
-          ))}
-          {users.length === 0 && (
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-              Nenhum usuário encontrado
-            </p>
-          )}
-        </div>
-      )}
+          </form>
+        )}
+
+        {isLoading ? (
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Carregando...</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            {users.map(u => (
+              <div
+                key={u.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.6rem 0.75rem',
+                  borderRadius: '6px',
+                  background: 'rgba(255,255,255,0.02)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 500 }}>
+                    {u.name}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '0.75rem',
+                      color: 'var(--text-muted)',
+                      marginLeft: '0.5rem',
+                    }}
+                  >
+                    {u.email}
+                  </span>
+                </div>
+                <span className="badge badge-info" style={{ fontSize: '0.7rem' }}>
+                  {u.role === 'admin' || u.role === 'super_admin' ? 'Gestor' : 'Vendedor'}
+                </span>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    if (confirm(`Desativar "${u.name}"?`)) deleteMutation.mutate(u.id);
+                  }}
+                  style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem', color: 'var(--danger)' }}
+                >
+                  Desativar
+                </button>
+              </div>
+            ))}
+            {users.length === 0 && (
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                Nenhum usuário encontrado
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -769,317 +770,325 @@ function CustomFieldsTab({ addToast, queryClient }: { addToast: any; queryClient
   const fields = data?.items || [];
 
   return (
-    <div className="glass" style={{ padding: '1.5rem', maxWidth: 700 }}>
-      <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff', marginBottom: '0.5rem' }}>
-        Campos Personalizados Globais
-      </h3>
-      <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-        Defina campos personalizados que estarão disponíveis em todas as oportunidades.
-      </p>
+    <div className="card bg-base-300 max-w-2xl">
+      <div className="card-body">
+        <h3 className="text-sm font-semibold mb-1">Campos Personalizados Globais</h3>
+        <p className="text-xs text-base-content/50 mb-4">
+          Defina campos personalizados que estarão disponíveis em todas as oportunidades.
+        </p>
 
-      {/* Create form */}
-      <form
-        onSubmit={e => {
-          e.preventDefault();
-          if (newName.trim()) {
-            const opts =
-              newType === 'select' && newOptions
-                ? JSON.stringify(
-                    newOptions
-                      .split(',')
-                      .map(s => s.trim())
-                      .filter(Boolean)
-                  )
-                : undefined;
-            createMutation.mutate({
-              name: newName.trim(),
-              field_type: newType,
-              options: opts,
-              required: newRequired,
-            });
-          }
-        }}
-        style={{
-          marginBottom: '1.25rem',
-          padding: '0.75rem',
-          borderRadius: '8px',
-          background: 'rgba(255,255,255,0.03)',
-          border: '1px solid var(--border)',
-        }}
-      >
-        <div
+        {/* Create form */}
+        <form
+          onSubmit={e => {
+            e.preventDefault();
+            if (newName.trim()) {
+              const opts =
+                newType === 'select' && newOptions
+                  ? JSON.stringify(
+                      newOptions
+                        .split(',')
+                        .map(s => s.trim())
+                        .filter(Boolean)
+                    )
+                  : undefined;
+              createMutation.mutate({
+                name: newName.trim(),
+                field_type: newType,
+                options: opts,
+                required: newRequired,
+              });
+            }
+          }}
           style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr auto auto',
-            gap: '0.5rem',
-            alignItems: 'flex-end',
+            marginBottom: '1.25rem',
+            padding: '0.75rem',
+            borderRadius: '8px',
+            background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--border)',
           }}
         >
-          <div>
-            <label
-              style={{
-                fontSize: '0.7rem',
-                color: 'var(--text-muted)',
-                display: 'block',
-                marginBottom: '0.2rem',
-              }}
-            >
-              Nome do campo
-            </label>
-            <input
-              className="input"
-              value={newName}
-              onChange={e => setNewName(e.target.value)}
-              placeholder="Ex: CNPJ"
-              style={{ fontSize: '0.8rem' }}
-            />
-          </div>
-          <div>
-            <label
-              style={{
-                fontSize: '0.7rem',
-                color: 'var(--text-muted)',
-                display: 'block',
-                marginBottom: '0.2rem',
-              }}
-            >
-              Tipo
-            </label>
-            <select
-              className="select"
-              value={newType}
-              onChange={e => setNewType(e.target.value)}
-              style={{ fontSize: '0.8rem' }}
-            >
-              {FIELD_TYPES.map(t => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button className="btn btn-primary btn-sm" type="submit" disabled={!newName.trim()}>
-            Adicionar
-          </button>
-        </div>
-        {newType === 'select' && (
-          <div style={{ marginTop: '0.5rem' }}>
-            <label
-              style={{
-                fontSize: '0.7rem',
-                color: 'var(--text-muted)',
-                display: 'block',
-                marginBottom: '0.2rem',
-              }}
-            >
-              Opções (separadas por vírgula)
-            </label>
-            <input
-              className="input"
-              value={newOptions}
-              onChange={e => setNewOptions(e.target.value)}
-              placeholder="Ex: Opção A, Opção B, Opção C"
-              style={{ fontSize: '0.8rem' }}
-            />
-          </div>
-        )}
-        <label
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            marginTop: '0.5rem',
-            fontSize: '0.75rem',
-            color: 'var(--text-muted)',
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={newRequired}
-            onChange={e => setNewRequired(e.target.checked)}
-          />
-          Obrigatório
-        </label>
-      </form>
-
-      {/* Field list */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-        {fields.map(f => (
           <div
-            key={f.id}
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr auto auto',
+              gap: '0.5rem',
+              alignItems: 'flex-end',
+            }}
+          >
+            <div>
+              <label
+                style={{
+                  fontSize: '0.7rem',
+                  color: 'var(--text-muted)',
+                  display: 'block',
+                  marginBottom: '0.2rem',
+                }}
+              >
+                Nome do campo
+              </label>
+              <input
+                className="input"
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+                placeholder="Ex: CNPJ"
+                style={{ fontSize: '0.8rem' }}
+              />
+            </div>
+            <div>
+              <label
+                style={{
+                  fontSize: '0.7rem',
+                  color: 'var(--text-muted)',
+                  display: 'block',
+                  marginBottom: '0.2rem',
+                }}
+              >
+                Tipo
+              </label>
+              <select
+                className="select"
+                value={newType}
+                onChange={e => setNewType(e.target.value)}
+                style={{ fontSize: '0.8rem' }}
+              >
+                {FIELD_TYPES.map(t => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button className="btn btn-primary btn-sm" type="submit" disabled={!newName.trim()}>
+              Adicionar
+            </button>
+          </div>
+          {newType === 'select' && (
+            <div style={{ marginTop: '0.5rem' }}>
+              <label
+                style={{
+                  fontSize: '0.7rem',
+                  color: 'var(--text-muted)',
+                  display: 'block',
+                  marginBottom: '0.2rem',
+                }}
+              >
+                Opções (separadas por vírgula)
+              </label>
+              <input
+                className="input"
+                value={newOptions}
+                onChange={e => setNewOptions(e.target.value)}
+                placeholder="Ex: Opção A, Opção B, Opção C"
+                style={{ fontSize: '0.8rem' }}
+              />
+            </div>
+          )}
+          <label
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem',
-              padding: '0.5rem 0.75rem',
-              borderRadius: '6px',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid var(--border)',
+              gap: '0.4rem',
+              marginTop: '0.5rem',
+              fontSize: '0.75rem',
+              color: 'var(--text-muted)',
             }}
           >
-            {editingId === f.id ? (
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  <input
-                    className="input"
-                    value={editForm.name}
-                    onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                    style={{ flex: 1, fontSize: '0.8rem' }}
-                    autoFocus
-                  />
-                  <select
-                    className="select"
-                    value={editForm.field_type}
-                    onChange={e => setEditForm({ ...editForm, field_type: e.target.value })}
-                    style={{ fontSize: '0.8rem' }}
-                  >
-                    {FIELD_TYPES.map(t => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {editForm.field_type === 'select' && (
-                  <input
-                    className="input"
-                    value={editForm.options}
-                    onChange={e => setEditForm({ ...editForm, options: e.target.value })}
-                    placeholder="Opções (separadas por vírgula)"
-                    style={{ fontSize: '0.75rem' }}
-                  />
-                )}
-                <div
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                >
-                  <label
+            <input
+              type="checkbox"
+              checked={newRequired}
+              onChange={e => setNewRequired(e.target.checked)}
+            />
+            Obrigatório
+          </label>
+        </form>
+
+        {/* Field list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          {fields.map(f => (
+            <div
+              key={f.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.5rem 0.75rem',
+                borderRadius: '6px',
+                background: 'rgba(255,255,255,0.02)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              {editingId === f.id ? (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <input
+                      className="input"
+                      value={editForm.name}
+                      onChange={e => setEditForm({ ...editForm, name: e.target.value })}
+                      style={{ flex: 1, fontSize: '0.8rem' }}
+                      autoFocus
+                    />
+                    <select
+                      className="select"
+                      value={editForm.field_type}
+                      onChange={e => setEditForm({ ...editForm, field_type: e.target.value })}
+                      style={{ fontSize: '0.8rem' }}
+                    >
+                      {FIELD_TYPES.map(t => (
+                        <option key={t.value} value={t.value}>
+                          {t.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {editForm.field_type === 'select' && (
+                    <input
+                      className="input"
+                      value={editForm.options}
+                      onChange={e => setEditForm({ ...editForm, options: e.target.value })}
+                      placeholder="Opções (separadas por vírgula)"
+                      style={{ fontSize: '0.75rem' }}
+                    />
+                  )}
+                  <div
                     style={{
                       display: 'flex',
+                      justifyContent: 'space-between',
                       alignItems: 'center',
-                      gap: '0.3rem',
-                      fontSize: '0.7rem',
-                      color: 'var(--text-muted)',
                     }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={editForm.required}
-                      onChange={e => setEditForm({ ...editForm, required: e.target.checked })}
-                    />
-                    Obrigatório
-                  </label>
-                  <div style={{ display: 'flex', gap: '0.3rem' }}>
-                    <button
-                      className="btn btn-primary btn-sm"
-                      onClick={() => {
-                        const opts =
-                          editForm.field_type === 'select' && editForm.options
-                            ? JSON.stringify(
-                                editForm.options
-                                  .split(',')
-                                  .map(s => s.trim())
-                                  .filter(Boolean)
-                              )
-                            : '';
-                        updateMutation.mutate({
-                          id: f.id,
-                          name: editForm.name,
-                          field_type: editForm.field_type,
-                          options: opts,
-                          required: editForm.required,
-                        });
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        fontSize: '0.7rem',
+                        color: 'var(--text-muted)',
                       }}
-                      style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
                     >
-                      <Check size={13} />
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => setEditingId(null)}
-                      style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
-                    >
-                      <X size={13} />
-                    </button>
+                      <input
+                        type="checkbox"
+                        checked={editForm.required}
+                        onChange={e => setEditForm({ ...editForm, required: e.target.checked })}
+                      />
+                      Obrigatório
+                    </label>
+                    <div style={{ display: 'flex', gap: '0.3rem' }}>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          const opts =
+                            editForm.field_type === 'select' && editForm.options
+                              ? JSON.stringify(
+                                  editForm.options
+                                    .split(',')
+                                    .map(s => s.trim())
+                                    .filter(Boolean)
+                                )
+                              : '';
+                          updateMutation.mutate({
+                            id: f.id,
+                            name: editForm.name,
+                            field_type: editForm.field_type,
+                            options: opts,
+                            required: editForm.required,
+                          });
+                        }}
+                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                      >
+                        <Check size={13} />
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => setEditingId(null)}
+                        style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}
+                      >
+                        <X size={13} />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <>
-                <span style={{ flex: 1, fontSize: '0.85rem', color: '#fff' }}>
-                  {f.name}
-                  {f.required && (
-                    <span
-                      style={{ color: 'var(--danger)', marginLeft: '0.3rem', fontSize: '0.7rem' }}
-                    >
-                      *
-                    </span>
-                  )}
-                </span>
-                <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>
-                  {FIELD_TYPES.find(t => t.value === f.field_type)?.label || f.field_type}
-                </span>
-                {f.options &&
-                  (() => {
-                    try {
-                      const o = JSON.parse(f.options);
-                      return Array.isArray(o) ? (
-                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                          {o.length} opções
-                        </span>
-                      ) : null;
-                    } catch {
-                      return null;
-                    }
-                  })()}
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => {
-                    setEditingId(f.id);
-                    let optionsStr = '';
-                    if (f.options) {
+              ) : (
+                <>
+                  <span style={{ flex: 1, fontSize: '0.85rem', color: '#fff' }}>
+                    {f.name}
+                    {f.required && (
+                      <span
+                        style={{ color: 'var(--danger)', marginLeft: '0.3rem', fontSize: '0.7rem' }}
+                      >
+                        *
+                      </span>
+                    )}
+                  </span>
+                  <span className="badge badge-info" style={{ fontSize: '0.65rem' }}>
+                    {FIELD_TYPES.find(t => t.value === f.field_type)?.label || f.field_type}
+                  </span>
+                  {f.options &&
+                    (() => {
                       try {
                         const o = JSON.parse(f.options);
-                        if (Array.isArray(o)) optionsStr = o.join(', ');
+                        return Array.isArray(o) ? (
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                            {o.length} opções
+                          </span>
+                        ) : null;
                       } catch {
-                        optionsStr = f.options;
+                        return null;
                       }
-                    }
-                    setEditForm({
-                      name: f.name,
-                      field_type: f.field_type,
-                      options: optionsStr,
-                      required: f.required,
-                    });
-                  }}
-                  style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem' }}
-                >
-                  <Pencil size={13} />
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => {
-                    if (confirm(`Arquivar campo "${f.name}"?`)) deleteMutation.mutate(f.id);
-                  }}
-                  style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem', color: 'var(--danger)' }}
-                >
-                  <Trash2 size={13} />
-                </button>
-              </>
-            )}
-          </div>
-        ))}
-        {fields.length === 0 && (
-          <p
-            style={{
-              color: 'var(--text-muted)',
-              fontSize: '0.85rem',
-              textAlign: 'center',
-              padding: '0.5rem',
-            }}
-          >
-            Nenhum campo personalizado criado
-          </p>
-        )}
+                    })()}
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      setEditingId(f.id);
+                      let optionsStr = '';
+                      if (f.options) {
+                        try {
+                          const o = JSON.parse(f.options);
+                          if (Array.isArray(o)) optionsStr = o.join(', ');
+                        } catch {
+                          optionsStr = f.options;
+                        }
+                      }
+                      setEditForm({
+                        name: f.name,
+                        field_type: f.field_type,
+                        options: optionsStr,
+                        required: f.required,
+                      });
+                    }}
+                    style={{ padding: '0.2rem 0.4rem', fontSize: '0.75rem' }}
+                  >
+                    <Pencil size={13} />
+                  </button>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      if (confirm(`Arquivar campo "${f.name}"?`)) deleteMutation.mutate(f.id);
+                    }}
+                    style={{
+                      padding: '0.2rem 0.4rem',
+                      fontSize: '0.75rem',
+                      color: 'var(--danger)',
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+          {fields.length === 0 && (
+            <p
+              style={{
+                color: 'var(--text-muted)',
+                fontSize: '0.85rem',
+                textAlign: 'center',
+                padding: '0.5rem',
+              }}
+            >
+              Nenhum campo personalizado criado
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -1145,89 +1154,91 @@ function PermissionsTab({
         Defina quais ações cada usuário da organização pode realizar. Por padrão, todos veem os
         contatos — o pipeline define quem trabalha com cada lead.
       </p>
-      <div className="glass" style={{ padding: '1rem', overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--border)' }}>
-              <th
-                style={{
-                  textAlign: 'left',
-                  padding: '0.5rem 0.75rem',
-                  color: 'var(--text-muted)',
-                  fontWeight: 500,
-                }}
-              >
-                Usuário
-              </th>
-              {permKeys.map(k => (
+      <div className="card bg-base-300 overflow-x-auto">
+        <div className="card-body p-4">
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
                 <th
-                  key={k}
                   style={{
-                    textAlign: 'center',
-                    padding: '0.5rem 0.5rem',
+                    textAlign: 'left',
+                    padding: '0.5rem 0.75rem',
                     color: 'var(--text-muted)',
                     fontWeight: 500,
-                    whiteSpace: 'nowrap',
                   }}
                 >
-                  {PERM_LABELS[k]}
+                  Usuário
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {users.map(u => (
-              <tr key={u.id} style={{ borderBottom: '1px solid rgba(45,56,71,0.3)' }}>
-                <td style={{ padding: '0.6rem 0.75rem' }}>
-                  <div style={{ color: '#fff', fontWeight: 500 }}>{u.name}</div>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{u.email}</div>
-                </td>
                 {permKeys.map(k => (
-                  <td key={k} style={{ textAlign: 'center', padding: '0.4rem' }}>
-                    <button
-                      onClick={() => togglePerm(u, k)}
-                      style={{
-                        width: 36,
-                        height: 20,
-                        borderRadius: 10,
-                        border: 'none',
-                        cursor: 'pointer',
-                        background: u.permissions[k] ? 'var(--primary)' : 'rgba(45,56,71,0.6)',
-                        position: 'relative',
-                        transition: 'background 0.2s',
-                      }}
-                    >
-                      <span
-                        style={{
-                          position: 'absolute',
-                          top: 2,
-                          width: 16,
-                          height: 16,
-                          borderRadius: '50%',
-                          background: '#fff',
-                          transition: 'left 0.2s',
-                          left: u.permissions[k] ? 18 : 2,
-                        }}
-                      />
-                    </button>
-                  </td>
+                  <th
+                    key={k}
+                    style={{
+                      textAlign: 'center',
+                      padding: '0.5rem 0.5rem',
+                      color: 'var(--text-muted)',
+                      fontWeight: 500,
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {PERM_LABELS[k]}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-        {users.length === 0 && (
-          <p
-            style={{
-              color: 'var(--text-muted)',
-              fontSize: '0.85rem',
-              textAlign: 'center',
-              padding: '1rem',
-            }}
-          >
-            Nenhum usuário encontrado
-          </p>
-        )}
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} style={{ borderBottom: '1px solid rgba(45,56,71,0.3)' }}>
+                  <td style={{ padding: '0.6rem 0.75rem' }}>
+                    <div style={{ color: '#fff', fontWeight: 500 }}>{u.name}</div>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>{u.email}</div>
+                  </td>
+                  {permKeys.map(k => (
+                    <td key={k} style={{ textAlign: 'center', padding: '0.4rem' }}>
+                      <button
+                        onClick={() => togglePerm(u, k)}
+                        style={{
+                          width: 36,
+                          height: 20,
+                          borderRadius: 10,
+                          border: 'none',
+                          cursor: 'pointer',
+                          background: u.permissions[k] ? 'var(--primary)' : 'rgba(45,56,71,0.6)',
+                          position: 'relative',
+                          transition: 'background 0.2s',
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: 2,
+                            width: 16,
+                            height: 16,
+                            borderRadius: '50%',
+                            background: '#fff',
+                            transition: 'left 0.2s',
+                            left: u.permissions[k] ? 18 : 2,
+                          }}
+                        />
+                      </button>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {users.length === 0 && (
+            <p
+              style={{
+                color: 'var(--text-muted)',
+                fontSize: '0.85rem',
+                textAlign: 'center',
+                padding: '1rem',
+              }}
+            >
+              Nenhum usuário encontrado
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

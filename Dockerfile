@@ -10,24 +10,30 @@ RUN npm run build
 # ── Stage 2: Production runtime ──────────────────────────────────────────────
 FROM python:3.12-slim
 
-WORKDIR /opt/amplex
+WORKDIR /app
 
 # Dependências Python (layer cacheável)
-COPY backend/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Código backend
-COPY backend/app/ app/
+COPY api/ ./api/
+COPY amplex/ ./amplex/
+COPY manage.py .
 
-# Diretório de arquivos
-RUN mkdir -p /var/lib/amplex/files
+# Diretórios de trabalho
+RUN mkdir -p /app/staticfiles
 
-# Frontend estático — FastAPI serve via catch-all route
+# Frontend estático — Django/WhiteNoise serve via catch-all
 COPY --from=frontend-build /build/dist ./static/
 
+# Entrypoint
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
 # Segurança: rodar como non-root
-RUN groupadd -r appuser && useradd -r -g appuser -d /opt/amplex appuser \
-    && chown -R appuser:appuser /opt/amplex /var/lib/amplex
+RUN groupadd -r appuser && useradd -r -g appuser -d /app appuser \
+    && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000
@@ -35,4 +41,10 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/amplex/api/health')"
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["./entrypoint.sh"]
+CMD ["gunicorn", "amplex.wsgi:application", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "3", \
+     "--timeout", "120", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-"]

@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { apiGet, apiPost } from '../../shared/api';
-import { useToast } from '../../shared/ui/Toast';
+import { useToast } from '../../shared/ui/useToast';
 import { useAuth } from '../../shared/store';
 import { Star, Check, X } from 'lucide-react';
 
@@ -330,7 +330,7 @@ export default function Pipeline() {
                       </span>
                     )}
                   </div>
-                  {card.tag_ids.length > 0 && (
+                  {card.tag_ids?.length > 0 && (
                     <div
                       style={{
                         marginTop: '0.4rem',
@@ -395,50 +395,50 @@ export default function Pipeline() {
           }}
           onClick={() => setLostDialog(null)}
         >
-          <div
-            className="glass"
-            style={{ width: '100%', maxWidth: 400, padding: '2rem' }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '1.25rem',
-              }}
-            >
-              <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>
-                Motivo da Perda
-              </h2>
-              <button
-                className="btn btn-ghost"
-                onClick={() => setLostDialog(null)}
-                style={{ padding: '0.25rem 0.5rem' }}
+          <div className="card bg-base-300 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="card-body">
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '1.25rem',
+                }}
               >
-                <X size={14} />
-              </button>
-            </div>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-              Por que esta oportunidade foi perdida?
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {(lostReasonsData?.items || []).map(r => (
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>
+                  Motivo da Perda
+                </h2>
                 <button
-                  key={r.id}
                   className="btn btn-ghost"
-                  style={{ justifyContent: 'flex-start', border: '1px solid var(--border)' }}
-                  onClick={() => lostMutation.mutate({ leadId: lostDialog.leadId, reasonId: r.id })}
-                  disabled={lostMutation.isPending}
+                  onClick={() => setLostDialog(null)}
+                  style={{ padding: '0.25rem 0.5rem' }}
                 >
-                  {r.name}
+                  <X size={14} />
                 </button>
-              ))}
-              {(lostReasonsData?.items || []).length === 0 && (
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  Nenhum motivo cadastrado. Cadastre em Configurações.
-                </p>
-              )}
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
+                Por que esta oportunidade foi perdida?
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {(lostReasonsData?.items || []).map(r => (
+                  <button
+                    key={r.id}
+                    className="btn btn-ghost"
+                    style={{ justifyContent: 'flex-start', border: '1px solid var(--border)' }}
+                    onClick={() =>
+                      lostMutation.mutate({ leadId: lostDialog.leadId, reasonId: r.id })
+                    }
+                    disabled={lostMutation.isPending}
+                  >
+                    {r.name}
+                  </button>
+                ))}
+                {(lostReasonsData?.items || []).length === 0 && (
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                    Nenhum motivo cadastrado. Cadastre em Configurações.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

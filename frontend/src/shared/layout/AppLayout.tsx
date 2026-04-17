@@ -99,7 +99,7 @@ export default function AppLayout() {
   const { user, loading, fetchUser, logout, currentOrg, setCurrentOrg } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { orgId } = useParams<{ orgId: string }>();
+  const { slug } = useParams<{ slug: string }>();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [platformItems, setPlatformItems] = useState<PlatformItem[]>(STATIC_PLATFORMS);
@@ -109,19 +109,17 @@ export default function AppLayout() {
 
   // Resolve org context from URL param
   useEffect(() => {
-    if (!user || !orgId) return;
-    const numId = Number(orgId);
-    if (currentOrg?.id === numId) return;
-    const org = user.organizations?.find(o => o.id === numId);
+    if (!user || !slug) return;
+    if (currentOrg?.slug === slug) return;
+    const org = user.organizations?.find(o => o.slug === slug);
     if (org) {
       setCurrentOrg(org);
     } else {
-      // User doesn't belong to this org, redirect
       navigate('/orgs', { replace: true });
     }
-  }, [user, orgId]);
+  }, [user, slug, currentOrg?.slug, setCurrentOrg, navigate]);
 
-  const orgBase = orgId ? `/o/${orgId}` : '';
+  const orgBase = slug ? `/id/${slug}` : '';
 
   // Fetch platform URLs from Amplex config
   useEffect(() => {
@@ -201,23 +199,18 @@ export default function AppLayout() {
 
   useEffect(() => {
     fetchUser();
-  }, []);
+  }, [fetchUser]);
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);
 
   if (loading) {
     return (
-      <div
-        style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <div className="glass" style={{ padding: '2rem 3rem' }}>
-          <p style={{ color: '#fff' }}>Carregando...</p>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="card bg-base-300">
+          <div className="card-body">
+            <p>Carregando...</p>
+          </div>
         </div>
       </div>
     );
@@ -476,7 +469,7 @@ export default function AppLayout() {
                   </span>
                 )}
               </div>
-              {!notifData || notifData.items.length === 0 ? (
+              {!notifData || !notifData.items || notifData.items.length === 0 ? (
                 <div
                   style={{
                     padding: '2rem 1rem',

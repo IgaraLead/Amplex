@@ -77,9 +77,7 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <div className="page">
-        <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
-          Carregando dashboard...
-        </div>
+        <div className="text-center py-12 text-base-content/50">Carregando dashboard...</div>
       </div>
     );
   }
@@ -87,14 +85,16 @@ export default function Dashboard() {
   if (error || !data) {
     return (
       <div className="page">
-        <div className="glass" style={{ padding: '2rem', textAlign: 'center' }}>
-          <p style={{ color: 'var(--danger)' }}>Erro ao carregar dashboard</p>
+        <div className="card bg-base-300">
+          <div className="card-body text-center">
+            <p className="text-error">Erro ao carregar dashboard</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  const { pipeline, stages, total_contacts } = data;
+  const { pipeline, stages = [], total_contacts } = data;
   const monthChange =
     pipeline.new_last_month > 0
       ? Math.round(
@@ -116,207 +116,144 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="stat-grid">
-        <div className="glass stat-card">
+        <div className="card bg-base-300 stat-card">
           <div className="stat-card-label">Oportunidades Ativas</div>
           <div className="stat-card-value">{pipeline.total_opportunities}</div>
         </div>
-        <div className="glass stat-card">
+        <div className="card bg-base-300 stat-card">
           <div className="stat-card-label">Leads</div>
           <div className="stat-card-value">{pipeline.total_leads}</div>
         </div>
-        <div className="glass stat-card">
+        <div className="card bg-base-300 stat-card">
           <div className="stat-card-label">Ganhas</div>
-          <div className="stat-card-value" style={{ color: 'var(--success)' }}>
-            {pipeline.won}
-          </div>
+          <div className="stat-card-value text-success">{pipeline.won}</div>
         </div>
-        <div className="glass stat-card">
+        <div className="card bg-base-300 stat-card">
           <div className="stat-card-label">Receita Total</div>
           <div className="stat-card-value gradient-text">
             {formatCurrency(pipeline.total_revenue)}
           </div>
         </div>
-        <div className="glass stat-card">
+        <div className="card bg-base-300 stat-card">
           <div className="stat-card-label">Novos Este Mês</div>
           <div className="stat-card-value">{pipeline.new_this_month}</div>
           {monthChange !== 0 && (
-            <div
-              className="stat-card-change"
-              style={{ color: monthChange > 0 ? 'var(--success)' : 'var(--danger)' }}
-            >
+            <div className={`stat-card-change ${monthChange > 0 ? 'text-success' : 'text-error'}`}>
               {monthChange > 0 ? '+' : ''}
               {monthChange}% vs mês anterior
             </div>
           )}
         </div>
-        <div className="glass stat-card">
+        <div className="card bg-base-300 stat-card">
           <div className="stat-card-label">Taxa de Conversão</div>
           <div
-            className="stat-card-value"
-            style={{ color: conversionRate >= 50 ? 'var(--success)' : 'var(--warning)' }}
+            className={`stat-card-value ${conversionRate >= 50 ? 'text-success' : 'text-warning'}`}
           >
             {conversionRate}%
           </div>
-          <div className="stat-card-change" style={{ color: 'var(--text-muted)' }}>
+          <div className="stat-card-change text-base-content/50">
             {pipeline.won}W / {pipeline.lost}L
           </div>
         </div>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: isManager ? '1fr 1fr' : '1fr',
-          gap: '1.5rem',
-        }}
-      >
+      <div className={isManager ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : ''}>
         {/* Pipeline Stages */}
-        <div className="glass" style={{ padding: '1.5rem' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}>
-            Pipeline por Estágio
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {stages.map(stage => {
-              const maxCount = Math.max(...stages.map(s => s.count), 1);
-              const pct = (stage.count / maxCount) * 100;
-              return (
-                <div key={stage.id}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      marginBottom: '0.35rem',
-                    }}
-                  >
-                    <span style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 500 }}>
-                      {stage.name}
-                      {stage.is_won && (
-                        <span
-                          style={{
-                            color: 'var(--success)',
-                            marginLeft: '0.5rem',
-                            display: 'inline-flex',
-                          }}
-                        >
-                          <Check size={14} />
-                        </span>
-                      )}
-                    </span>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                      {stage.count} · {formatCurrency(stage.revenue)}
-                    </span>
+        <div className="card bg-base-300">
+          <div className="card-body">
+            <h2 className="text-base font-semibold mb-4">Pipeline por Estágio</h2>
+            <div className="flex flex-col gap-3">
+              {stages.map(stage => {
+                const maxCount = Math.max(...stages.map(s => s.count), 1);
+                const pct = (stage.count / maxCount) * 100;
+                return (
+                  <div key={stage.id}>
+                    <div className="flex justify-between mb-1.5">
+                      <span className="text-sm font-medium">
+                        {stage.name}
+                        {stage.is_won && (
+                          <span className="text-success ml-2 inline-flex">
+                            <Check size={14} />
+                          </span>
+                        )}
+                      </span>
+                      <span className="text-xs text-base-content/50">
+                        {stage.count} · {formatCurrency(stage.revenue)}
+                      </span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-white/[0.06]">
+                      <div
+                        style={{
+                          height: '100%',
+                          borderRadius: '3px',
+                          width: `${pct}%`,
+                          background: stage.is_won ? 'var(--success)' : 'var(--brand-gradient)',
+                          transition: 'width 0.5s ease',
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div
-                    style={{
-                      height: '6px',
-                      borderRadius: '3px',
-                      background: 'rgba(255,255,255,0.06)',
-                    }}
-                  >
-                    <div
-                      style={{
-                        height: '100%',
-                        borderRadius: '3px',
-                        width: `${pct}%`,
-                        background: stage.is_won ? 'var(--success)' : 'var(--brand-gradient)',
-                        transition: 'width 0.5s ease',
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
 
         {/* Conversion Funnel (Manager Only) */}
         {isManager && (
-          <div className="glass" style={{ padding: '1.5rem' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}>
-              Funil de Conversão
-            </h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {stages.map((stage, i) => {
-                const totalInPipeline = stages.reduce((s, st) => s + st.count, 0);
-                const width =
-                  totalInPipeline > 0 ? Math.max((stage.count / totalInPipeline) * 100, 5) : 5;
-                return (
-                  <div
-                    key={stage.id}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}
-                  >
-                    <div
-                      style={{
-                        height: '32px',
-                        width: `${width}%`,
-                        minWidth: '40px',
-                        borderRadius: '4px',
-                        background: stage.is_won
-                          ? 'var(--success)'
-                          : `rgba(0, 112, 255, ${0.3 + (1 - i / stages.length) * 0.5})`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        color: '#fff',
-                        transition: 'width 0.5s ease',
-                      }}
-                    >
-                      {stage.count}
+          <div className="card bg-base-300">
+            <div className="card-body">
+              <h2 className="text-base font-semibold mb-4">Funil de Conversão</h2>
+              <div className="flex flex-col gap-2">
+                {stages.map((stage, i) => {
+                  const totalInPipeline = stages.reduce((s, st) => s + st.count, 0);
+                  const width =
+                    totalInPipeline > 0 ? Math.max((stage.count / totalInPipeline) * 100, 5) : 5;
+                  return (
+                    <div key={stage.id} className="flex items-center gap-3">
+                      <div
+                        style={{
+                          height: '32px',
+                          width: `${width}%`,
+                          minWidth: '40px',
+                          borderRadius: '4px',
+                          background: stage.is_won
+                            ? 'var(--success)'
+                            : `rgba(0, 112, 255, ${0.3 + (1 - i / stages.length) * 0.5})`,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          color: '#fff',
+                          transition: 'width 0.5s ease',
+                        }}
+                      >
+                        {stage.count}
+                      </div>
+                      <span className="text-xs text-base-content/50 whitespace-nowrap">
+                        {stage.name}
+                      </span>
                     </div>
-                    <span
-                      style={{
-                        fontSize: '0.8rem',
-                        color: 'var(--text-light)',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {stage.name}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
 
-            <div
-              style={{
-                marginTop: '1.25rem',
-                padding: '0.75rem',
-                borderRadius: '8px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Total em pipeline</span>
-                <span style={{ color: '#fff', fontWeight: 600 }}>
-                  {stages.reduce((s, st) => s + st.count, 0)}
-                </span>
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: '0.8rem',
-                  marginTop: '0.4rem',
-                }}
-              >
-                <span style={{ color: 'var(--text-muted)' }}>Contatos</span>
-                <span style={{ color: '#fff', fontWeight: 600 }}>{total_contacts}</span>
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontSize: '0.8rem',
-                  marginTop: '0.4rem',
-                }}
-              >
-                <span style={{ color: 'var(--text-muted)' }}>Receita potencial</span>
-                <span style={{ color: 'var(--success)', fontWeight: 600 }}>
-                  {formatCurrency(stages.reduce((s, st) => s + st.revenue, 0))}
-                </span>
+              <div className="mt-5 rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
+                <div className="flex justify-between text-xs">
+                  <span className="text-base-content/50">Total em pipeline</span>
+                  <span className="font-semibold">{stages.reduce((s, st) => s + st.count, 0)}</span>
+                </div>
+                <div className="flex justify-between text-xs mt-1.5">
+                  <span className="text-base-content/50">Contatos</span>
+                  <span className="font-semibold">{total_contacts}</span>
+                </div>
+                <div className="flex justify-between text-xs mt-1.5">
+                  <span className="text-base-content/50">Receita potencial</span>
+                  <span className="text-success font-semibold">
+                    {formatCurrency(stages.reduce((s, st) => s + st.revenue, 0))}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -327,194 +264,142 @@ export default function Dashboard() {
       {isManager && advancedData && (
         <>
           {/* Vendor Performance Table */}
-          <div className="glass" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
-            <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}>
-              Performance por Vendedor
-            </h2>
-            <div className="table-container" style={{ background: 'transparent' }}>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Vendedor</th>
-                    <th>Total</th>
-                    <th>Ganhas</th>
-                    <th>Perdidas</th>
-                    <th>Conversão</th>
-                    <th>Receita</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {advancedData.vendor_performance.map(v => (
-                    <tr key={v.user_id}>
-                      <td style={{ fontWeight: 500, color: '#fff' }}>{v.name}</td>
-                      <td>{v.total}</td>
-                      <td style={{ color: 'var(--success)' }}>{v.won}</td>
-                      <td style={{ color: 'var(--danger)' }}>{v.lost}</td>
-                      <td>
-                        <span
-                          style={{
-                            color:
-                              v.conversion >= 50
-                                ? 'var(--success)'
-                                : v.conversion >= 25
-                                  ? 'var(--warning)'
-                                  : 'var(--danger)',
-                          }}
-                        >
-                          {v.conversion}%
-                        </span>
-                      </td>
-                      <td style={{ color: 'var(--success)' }}>{formatCurrency(v.revenue)}</td>
+          <div className="card bg-base-300 mt-6">
+            <div className="card-body">
+              <h2 className="text-base font-semibold mb-4">Performance por Vendedor</h2>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Vendedor</th>
+                      <th>Total</th>
+                      <th>Ganhas</th>
+                      <th>Perdidas</th>
+                      <th>Conversão</th>
+                      <th>Receita</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {(advancedData.vendor_performance ?? []).map(v => (
+                      <tr key={v.user_id}>
+                        <td className="font-medium">{v.name}</td>
+                        <td>{v.total}</td>
+                        <td className="text-success">{v.won}</td>
+                        <td className="text-error">{v.lost}</td>
+                        <td>
+                          <span
+                            className={
+                              v.conversion >= 50
+                                ? 'text-success'
+                                : v.conversion >= 25
+                                  ? 'text-warning'
+                                  : 'text-error'
+                            }
+                          >
+                            {v.conversion}%
+                          </span>
+                        </td>
+                        <td className="text-success font-mono">{formatCurrency(v.revenue)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '1.5rem',
-              marginTop: '1.5rem',
-            }}
-          >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
             {/* Origin Breakdown */}
-            <div className="glass" style={{ padding: '1.5rem' }}>
-              <h2
-                style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}
-              >
-                Origem dos Leads
-              </h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                {advancedData.origin_breakdown.map((o, i) => {
-                  const maxCount = Math.max(...advancedData.origin_breakdown.map(x => x.count), 1);
-                  const pct = (o.count / maxCount) * 100;
-                  return (
-                    <div key={o.source_id ?? 'none'}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          marginBottom: '0.25rem',
-                        }}
-                      >
-                        <span style={{ fontSize: '0.85rem', color: '#fff' }}>{o.name}</span>
-                        <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                          {o.count}
-                        </span>
+            <div className="card bg-base-300">
+              <div className="card-body">
+                <h2 className="text-base font-semibold mb-4">Origem dos Leads</h2>
+                <div className="flex flex-col gap-2">
+                  {(advancedData.origin_breakdown ?? []).map((o, i) => {
+                    const maxCount = Math.max(
+                      ...(advancedData.origin_breakdown ?? []).map(x => x.count),
+                      1
+                    );
+                    const pct = (o.count / maxCount) * 100;
+                    return (
+                      <div key={o.source_id ?? 'none'}>
+                        <div className="flex justify-between mb-1">
+                          <span className="text-sm">{o.name}</span>
+                          <span className="text-xs text-base-content/50">{o.count}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-white/[0.06]">
+                          <div
+                            style={{
+                              height: '100%',
+                              borderRadius: '3px',
+                              width: `${pct}%`,
+                              background: `hsl(${210 + i * 30}, 80%, 55%)`,
+                              transition: 'width 0.5s ease',
+                            }}
+                          />
+                        </div>
                       </div>
-                      <div
-                        style={{
-                          height: '6px',
-                          borderRadius: '3px',
-                          background: 'rgba(255,255,255,0.06)',
-                        }}
-                      >
-                        <div
-                          style={{
-                            height: '100%',
-                            borderRadius: '3px',
-                            width: `${pct}%`,
-                            background: `hsl(${210 + i * 30}, 80%, 55%)`,
-                            transition: 'width 0.5s ease',
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-                {advancedData.origin_breakdown.length === 0 && (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                    Sem dados de origem
-                  </p>
-                )}
+                    );
+                  })}
+                  {(advancedData.origin_breakdown ?? []).length === 0 && (
+                    <p className="text-sm text-base-content/50">Sem dados de origem</p>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Leads Over Time */}
-            <div className="glass" style={{ padding: '1.5rem' }}>
-              <h2
-                style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}
-              >
-                Evolução de Leads (6 meses)
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem', height: 150 }}>
-                {advancedData.leads_over_time.map(m => {
-                  const maxC = Math.max(...advancedData.leads_over_time.map(x => x.count), 1);
-                  const hPct = (m.count / maxC) * 100;
-                  return (
-                    <div
-                      key={m.month}
-                      style={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '0.25rem',
-                      }}
-                    >
-                      <span style={{ fontSize: '0.7rem', color: '#fff', fontWeight: 600 }}>
-                        {m.count}
-                      </span>
-                      <div
-                        style={{
-                          width: '100%',
-                          borderRadius: '4px 4px 0 0',
-                          height: `${Math.max(hPct, 5)}%`,
-                          background: 'var(--brand-gradient)',
-                          transition: 'height 0.5s ease',
-                        }}
-                      />
-                      <span
-                        style={{
-                          fontSize: '0.6rem',
-                          color: 'var(--text-muted)',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {m.label}
-                      </span>
-                    </div>
-                  );
-                })}
+            <div className="card bg-base-300">
+              <div className="card-body">
+                <h2 className="text-base font-semibold mb-4">Evolução de Leads (6 meses)</h2>
+                <div className="flex items-end gap-2 h-[150px]">
+                  {(advancedData.leads_over_time ?? []).map(m => {
+                    const maxC = Math.max(
+                      ...(advancedData.leads_over_time ?? []).map(x => x.count),
+                      1
+                    );
+                    const hPct = (m.count / maxC) * 100;
+                    return (
+                      <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
+                        <span className="text-xs font-semibold">{m.count}</span>
+                        <div
+                          style={{
+                            width: '100%',
+                            borderRadius: '4px 4px 0 0',
+                            height: `${Math.max(hPct, 5)}%`,
+                            background: 'var(--brand-gradient)',
+                            transition: 'height 0.5s ease',
+                          }}
+                        />
+                        <span className="text-xs text-base-content/50 whitespace-nowrap">
+                          {m.label}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
 
           {/* Revenue Forecast */}
-          {advancedData.revenue_forecast.length > 0 && (
-            <div className="glass" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
-              <h2
-                style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}
-              >
-                Previsão de Receita
-              </h2>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                {advancedData.revenue_forecast.map(f => (
-                  <div
-                    key={f.month}
-                    className="glass"
-                    style={{ padding: '1rem', flex: '1 1 140px', textAlign: 'center' }}
-                  >
+          {(advancedData.revenue_forecast ?? []).length > 0 && (
+            <div className="card bg-base-300 mt-6">
+              <div className="card-body">
+                <h2 className="text-base font-semibold mb-4">Previsão de Receita</h2>
+                <div className="flex gap-4 flex-wrap">
+                  {(advancedData.revenue_forecast ?? []).map(f => (
                     <div
-                      style={{
-                        fontSize: '0.75rem',
-                        color: 'var(--text-muted)',
-                        marginBottom: '0.3rem',
-                      }}
+                      key={f.month}
+                      className="flex-1 min-w-35 text-center rounded-xl bg-white/[0.03] border border-white/[0.06] p-4"
                     >
-                      {f.label}
+                      <div className="text-xs text-base-content/50 mb-1">{f.label}</div>
+                      <div className="text-lg font-bold text-success font-mono">
+                        {formatCurrency(f.revenue)}
+                      </div>
+                      <div className="text-xs text-base-content/50">{f.count} oportunidades</div>
                     </div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 700, color: 'var(--success)' }}>
-                      {formatCurrency(f.revenue)}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                      {f.count} oportunidades
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -523,56 +408,47 @@ export default function Dashboard() {
 
       {/* Next Contacts (all users) */}
       {nextContactsData && nextContactsData.items.length > 0 && (
-        <div className="glass" style={{ padding: '1.5rem', marginTop: '1.5rem' }}>
-          <h2 style={{ fontSize: '1rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}>
-            {isManager ? 'Leads Sem Contato Recente' : 'Próximos Contatos'}
-          </h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {nextContactsData.items.map(item => (
-              <div
-                key={item.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.6rem 0.75rem',
-                  borderRadius: '8px',
-                  background:
-                    item.days_since_contact > 7 ? 'rgba(255,59,48,0.06)' : 'rgba(255,255,255,0.02)',
-                  border: `1px solid ${item.days_since_contact > 7 ? 'rgba(255,59,48,0.2)' : 'var(--border)'}`,
-                  cursor: 'pointer',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '0.85rem', color: '#fff', fontWeight: 500 }}>
-                    {item.name}
+        <div className="card bg-base-300 mt-6">
+          <div className="card-body">
+            <h2 className="text-base font-semibold mb-4">
+              {isManager ? 'Leads Sem Contato Recente' : 'Próximos Contatos'}
+            </h2>
+            <div className="flex flex-col gap-2">
+              {nextContactsData.items.map(item => (
+                <div
+                  key={item.id}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer border ${
+                    item.days_since_contact > 7
+                      ? 'bg-error/[0.06] border-error/20'
+                      : 'bg-white/[0.02] border-white/[0.06]'
+                  }`}
+                >
+                  <div>
+                    <div className="text-sm font-medium">{item.name}</div>
+                    <div className="text-xs text-base-content/50">
+                      {item.contact_name} · {item.stage_name}
+                      {item.expected_revenue > 0 && ` · ${formatCurrency(item.expected_revenue)}`}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {item.contact_name} · {item.stage_name}
-                    {item.expected_revenue > 0 && ` · ${formatCurrency(item.expected_revenue)}`}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div
-                    style={{
-                      fontSize: '0.8rem',
-                      fontWeight: 600,
-                      color:
+                  <div className="text-right">
+                    <div
+                      className={`text-xs font-semibold ${
                         item.days_since_contact > 7
-                          ? 'var(--danger)'
+                          ? 'text-error'
                           : item.days_since_contact > 3
-                            ? 'var(--warning)'
-                            : 'var(--success)',
-                    }}
-                  >
-                    {item.days_since_contact}d atrás
-                  </div>
-                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                    {item.phone || item.email_from}
+                            ? 'text-warning'
+                            : 'text-success'
+                      }`}
+                    >
+                      {item.days_since_contact}d atrás
+                    </div>
+                    <div className="text-xs text-base-content/50">
+                      {item.phone || item.email_from}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       )}

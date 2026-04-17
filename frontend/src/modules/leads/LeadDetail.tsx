@@ -2,7 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect, type ReactNode } from 'react';
 import { apiGet, apiPost, apiPut, apiDelete, apiUpload, crmUrl } from '../../shared/api';
-import { useToast } from '../../shared/ui/Toast';
+import { useToast } from '../../shared/ui/useToast';
 import { useAuth } from '../../shared/store';
 import {
   Phone,
@@ -559,96 +559,135 @@ export default function LeadDetail() {
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem' }}>
         {/* Main Info */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          <div className="glass" style={{ padding: '1.5rem' }}>
-            <h3
-              style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff', marginBottom: '1rem' }}
-            >
-              Informações
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <Field
-                label="Nome"
-                value={form.name || ''}
-                editing={editing}
-                onChange={v => setForm({ ...form, name: v })}
-              />
-              <Field
-                label="Contato"
-                value={form.contact_name || ''}
-                editing={editing}
-                onChange={v => setForm({ ...form, contact_name: v })}
-              />
-              <Field
-                label="E-mail"
-                value={form.email_from || ''}
-                editing={editing}
-                type="email"
-                onChange={v => setForm({ ...form, email_from: v })}
-              />
-              <Field
-                label="Telefone"
-                value={form.phone || ''}
-                editing={editing}
-                onChange={v => setForm({ ...form, phone: v })}
-              />
-              <Field
-                label="Celular"
-                value={form.mobile || ''}
-                editing={editing}
-                onChange={v => setForm({ ...form, mobile: v })}
-              />
-              <div>
-                <label
-                  style={{
-                    display: 'block',
-                    fontSize: '0.75rem',
-                    color: 'var(--text-muted)',
-                    marginBottom: '0.3rem',
-                  }}
-                >
-                  Estágio
-                </label>
-                {editing ? (
-                  <select
-                    className="select"
-                    value={form.stage_id || ''}
-                    onChange={e => setForm({ ...form, stage_id: parseInt(e.target.value) })}
+          <div className="card bg-base-300">
+            <div className="card-body">
+              <h3 className="text-sm font-semibold mb-4">Informações</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <Field
+                  label="Nome"
+                  value={form.name || ''}
+                  editing={editing}
+                  onChange={v => setForm({ ...form, name: v })}
+                />
+                <Field
+                  label="Contato"
+                  value={form.contact_name || ''}
+                  editing={editing}
+                  onChange={v => setForm({ ...form, contact_name: v })}
+                />
+                <Field
+                  label="E-mail"
+                  value={form.email_from || ''}
+                  editing={editing}
+                  type="email"
+                  onChange={v => setForm({ ...form, email_from: v })}
+                />
+                <Field
+                  label="Telefone"
+                  value={form.phone || ''}
+                  editing={editing}
+                  onChange={v => setForm({ ...form, phone: v })}
+                />
+                <Field
+                  label="Celular"
+                  value={form.mobile || ''}
+                  editing={editing}
+                  onChange={v => setForm({ ...form, mobile: v })}
+                />
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '0.75rem',
+                      color: 'var(--text-muted)',
+                      marginBottom: '0.3rem',
+                    }}
                   >
-                    {stages.map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <p style={{ fontSize: '0.875rem', color: '#fff' }}>{lead.stage_name}</p>
-                )}
+                    Estágio
+                  </label>
+                  {editing ? (
+                    <select
+                      className="select"
+                      value={form.stage_id || ''}
+                      onChange={e => setForm({ ...form, stage_id: parseInt(e.target.value) })}
+                    >
+                      {stages.map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p style={{ fontSize: '0.875rem', color: '#fff' }}>{lead.stage_name}</p>
+                  )}
+                </div>
+                <Field
+                  label="Receita Esperada"
+                  value={
+                    editing
+                      ? String(form.expected_revenue || 0)
+                      : formatCurrency(lead.expected_revenue)
+                  }
+                  editing={editing}
+                  type={editing ? 'number' : 'text'}
+                  onChange={v => setForm({ ...form, expected_revenue: parseFloat(v) || 0 })}
+                />
+                <Field
+                  label="Probabilidade (%)"
+                  value={editing ? String(form.probability || 0) : `${lead.probability}%`}
+                  editing={editing}
+                  type={editing ? 'number' : 'text'}
+                  onChange={v => setForm({ ...form, probability: parseFloat(v) || 0 })}
+                />
+                <Field
+                  label="Cargo"
+                  value={form.function || ''}
+                  editing={editing}
+                  onChange={v => setForm({ ...form, function: v })}
+                />
+                <div>
+                  <label
+                    style={{
+                      display: 'block',
+                      fontSize: '0.75rem',
+                      color: 'var(--text-muted)',
+                      marginBottom: '0.3rem',
+                    }}
+                  >
+                    Origem
+                  </label>
+                  {editing ? (
+                    <select
+                      className="select"
+                      value={form.source_id || ''}
+                      onChange={e =>
+                        setForm({
+                          ...form,
+                          source_id: e.target.value ? parseInt(e.target.value) : null,
+                        })
+                      }
+                    >
+                      <option value="">Sem origem</option>
+                      {(sourcesData?.items || []).map(s => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p
+                      style={{
+                        fontSize: '0.875rem',
+                        color: lead.source_name ? '#fff' : 'var(--text-light)',
+                      }}
+                    >
+                      {lead.source_name || '—'}
+                    </p>
+                  )}
+                </div>
               </div>
-              <Field
-                label="Receita Esperada"
-                value={
-                  editing
-                    ? String(form.expected_revenue || 0)
-                    : formatCurrency(lead.expected_revenue)
-                }
-                editing={editing}
-                type={editing ? 'number' : 'text'}
-                onChange={v => setForm({ ...form, expected_revenue: parseFloat(v) || 0 })}
-              />
-              <Field
-                label="Probabilidade (%)"
-                value={editing ? String(form.probability || 0) : `${lead.probability}%`}
-                editing={editing}
-                type={editing ? 'number' : 'text'}
-                onChange={v => setForm({ ...form, probability: parseFloat(v) || 0 })}
-              />
-              <Field
-                label="Cargo"
-                value={form.function || ''}
-                editing={editing}
-                onChange={v => setForm({ ...form, function: v })}
-              />
-              <div>
+
+              <div style={{ marginTop: '1.5rem' }}>
                 <label
                   style={{
                     display: 'block',
@@ -657,98 +696,313 @@ export default function LeadDetail() {
                     marginBottom: '0.3rem',
                   }}
                 >
-                  Origem
+                  Descrição
                 </label>
                 {editing ? (
-                  <select
-                    className="select"
-                    value={form.source_id || ''}
-                    onChange={e =>
-                      setForm({
-                        ...form,
-                        source_id: e.target.value ? parseInt(e.target.value) : null,
-                      })
-                    }
-                  >
-                    <option value="">Sem origem</option>
-                    {(sourcesData?.items || []).map(s => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
+                  <textarea
+                    className="input"
+                    rows={4}
+                    value={form.description || ''}
+                    onChange={e => setForm({ ...form, description: e.target.value })}
+                  />
                 ) : (
                   <p
                     style={{
                       fontSize: '0.875rem',
-                      color: lead.source_name ? '#fff' : 'var(--text-light)',
+                      color: lead.description ? '#fff' : 'var(--text-light)',
+                      whiteSpace: 'pre-wrap',
                     }}
                   >
-                    {lead.source_name || '—'}
+                    {lead.description || 'Sem descrição'}
                   </p>
                 )}
               </div>
             </div>
-
-            <div style={{ marginTop: '1.5rem' }}>
-              <label
-                style={{
-                  display: 'block',
-                  fontSize: '0.75rem',
-                  color: 'var(--text-muted)',
-                  marginBottom: '0.3rem',
-                }}
-              >
-                Descrição
-              </label>
-              {editing ? (
-                <textarea
-                  className="input"
-                  rows={4}
-                  value={form.description || ''}
-                  onChange={e => setForm({ ...form, description: e.target.value })}
-                />
-              ) : (
-                <p
-                  style={{
-                    fontSize: '0.875rem',
-                    color: lead.description ? '#fff' : 'var(--text-light)',
-                    whiteSpace: 'pre-wrap',
-                  }}
-                >
-                  {lead.description || 'Sem descrição'}
-                </p>
-              )}
-            </div>
           </div>
 
           {/* Timeline / Interactions */}
-          <div className="glass" style={{ padding: '1.5rem' }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '1rem',
-              }}
-            >
-              <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff' }}>
-                Histórico de Interações ({interactions.length})
-              </h3>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => setShowInteractionForm(!showInteractionForm)}
-              >
-                {showInteractionForm ? 'Cancelar' : '+ Nova Interação'}
-              </button>
-            </div>
-
-            {/* New interaction form */}
-            {showInteractionForm && (
+          <div className="card bg-base-300">
+            <div className="card-body">
               <div
                 style={{
-                  marginBottom: '1.25rem',
-                  padding: '1rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '1rem',
+                }}
+              >
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff' }}>
+                  Histórico de Interações ({interactions.length})
+                </h3>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setShowInteractionForm(!showInteractionForm)}
+                >
+                  {showInteractionForm ? 'Cancelar' : '+ Nova Interação'}
+                </button>
+              </div>
+
+              {/* New interaction form */}
+              {showInteractionForm && (
+                <div
+                  style={{
+                    marginBottom: '1.25rem',
+                    padding: '1rem',
+                    borderRadius: '8px',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '0.5rem',
+                      marginBottom: '0.75rem',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    {INTERACTION_TYPES.map(t => (
+                      <button
+                        key={t.value}
+                        onClick={() => setNewInteraction({ ...newInteraction, type: t.value })}
+                        style={{
+                          padding: '0.35rem 0.6rem',
+                          borderRadius: '6px',
+                          fontSize: '0.75rem',
+                          border:
+                            newInteraction.type === t.value
+                              ? `1px solid ${t.color}`
+                              : '1px solid var(--border)',
+                          background:
+                            newInteraction.type === t.value ? `${t.color}20` : 'transparent',
+                          color: newInteraction.type === t.value ? t.color : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                        }}
+                      >
+                        {t.icon} {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    className="input"
+                    rows={3}
+                    placeholder="Descreva a interação..."
+                    value={newInteraction.description}
+                    onChange={e =>
+                      setNewInteraction({ ...newInteraction, description: e.target.value })
+                    }
+                    style={{ marginBottom: '0.75rem' }}
+                  />
+                  <div
+                    style={{
+                      display: 'flex',
+                      gap: '0.75rem',
+                      marginBottom: '0.75rem',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div>
+                      <label
+                        style={{
+                          fontSize: '0.7rem',
+                          color: 'var(--text-muted)',
+                          display: 'block',
+                          marginBottom: '0.2rem',
+                        }}
+                      >
+                        <Calendar
+                          size={11}
+                          style={{ display: 'inline', verticalAlign: 'middle' }}
+                        />{' '}
+                        Agendar Retorno
+                      </label>
+                      <input
+                        className="input"
+                        type="date"
+                        value={interactionFollowup}
+                        onChange={e => setInteractionFollowup(e.target.value)}
+                        style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
+                        min={new Date().toISOString().split('T')[0]}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        style={{
+                          fontSize: '0.7rem',
+                          color: 'var(--text-muted)',
+                          display: 'block',
+                          marginBottom: '0.2rem',
+                        }}
+                      >
+                        Anexos
+                      </label>
+                      <input
+                        type="file"
+                        multiple
+                        onChange={e => setInteractionFiles(e.target.files)}
+                        style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
+                      />
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    disabled={!newInteraction.description.trim() || interactionMutation.isPending}
+                    onClick={() =>
+                      interactionMutation.mutate({
+                        ...newInteraction,
+                        followup_date: interactionFollowup || undefined,
+                        files: interactionFiles,
+                      })
+                    }
+                  >
+                    {interactionMutation.isPending ? 'Registrando...' : 'Registrar Interação'}
+                  </button>
+                </div>
+              )}
+
+              {/* Interaction timeline */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {interactions.length === 0 && (
+                  <p
+                    style={{
+                      textAlign: 'center',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.85rem',
+                      padding: '1rem',
+                    }}
+                  >
+                    Nenhuma interação registrada
+                  </p>
+                )}
+                {interactions.map(msg => {
+                  const typeInfo =
+                    INTERACTION_TYPES.find(t => t.value === msg.type) || INTERACTION_TYPES[5];
+                  return (
+                    <div
+                      key={msg.id}
+                      style={{
+                        display: 'flex',
+                        gap: '0.75rem',
+                        padding: '0.75rem',
+                        borderRadius: '8px',
+                        background: 'rgba(255,255,255,0.02)',
+                        borderLeft: `3px solid ${typeInfo.color}`,
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            marginBottom: '0.3rem',
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              color: typeInfo.color,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.3rem',
+                            }}
+                          >
+                            {typeInfo.icon} {typeInfo.label}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                            {new Date(msg.date).toLocaleString('pt-BR')}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            fontSize: '0.825rem',
+                            color: 'var(--text-light)',
+                            lineHeight: 1.5,
+                          }}
+                          dangerouslySetInnerHTML={{ __html: msg.body }}
+                        />
+                        {msg.author_name && (
+                          <p
+                            style={{
+                              fontSize: '0.7rem',
+                              color: 'var(--text-muted)',
+                              marginTop: '0.35rem',
+                            }}
+                          >
+                            — {msg.author_name}
+                          </p>
+                        )}
+                        {msg.attachments?.length > 0 && (
+                          <div
+                            style={{
+                              marginTop: '0.35rem',
+                              display: 'flex',
+                              gap: '0.4rem',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            {msg.attachments.map(a => (
+                              <span
+                                key={a.id}
+                                style={{
+                                  fontSize: '0.7rem',
+                                  padding: '0.2rem 0.4rem',
+                                  borderRadius: '4px',
+                                  background: 'rgba(255,255,255,0.05)',
+                                  color: 'var(--text-muted)',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                }}
+                              >
+                                <Paperclip size={11} /> {a.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Attachments */}
+          <div className="card bg-base-300">
+            <div className="card-body">
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '1rem',
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: '0.9rem',
+                    fontWeight: 600,
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                  }}
+                >
+                  <Paperclip size={14} /> Anexos ({attachments.length})
+                </h3>
+              </div>
+
+              {/* Upload form */}
+              <div
+                style={{
+                  marginBottom: '1rem',
+                  padding: '0.75rem',
                   borderRadius: '8px',
                   background: 'rgba(255,255,255,0.03)',
                   border: '1px solid var(--border)',
@@ -758,55 +1012,11 @@ export default function LeadDetail() {
                   style={{
                     display: 'flex',
                     gap: '0.5rem',
-                    marginBottom: '0.75rem',
+                    alignItems: 'flex-end',
                     flexWrap: 'wrap',
                   }}
                 >
-                  {INTERACTION_TYPES.map(t => (
-                    <button
-                      key={t.value}
-                      onClick={() => setNewInteraction({ ...newInteraction, type: t.value })}
-                      style={{
-                        padding: '0.35rem 0.6rem',
-                        borderRadius: '6px',
-                        fontSize: '0.75rem',
-                        border:
-                          newInteraction.type === t.value
-                            ? `1px solid ${t.color}`
-                            : '1px solid var(--border)',
-                        background:
-                          newInteraction.type === t.value ? `${t.color}20` : 'transparent',
-                        color: newInteraction.type === t.value ? t.color : 'var(--text-muted)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.3rem',
-                      }}
-                    >
-                      {t.icon} {t.label}
-                    </button>
-                  ))}
-                </div>
-                <textarea
-                  className="input"
-                  rows={3}
-                  placeholder="Descreva a interação..."
-                  value={newInteraction.description}
-                  onChange={e =>
-                    setNewInteraction({ ...newInteraction, description: e.target.value })
-                  }
-                  style={{ marginBottom: '0.75rem' }}
-                />
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '0.75rem',
-                    marginBottom: '0.75rem',
-                    flexWrap: 'wrap',
-                    alignItems: 'center',
-                  }}
-                >
-                  <div>
+                  <div style={{ flex: '1 1 auto', minWidth: 150 }}>
                     <label
                       style={{
                         fontSize: '0.7rem',
@@ -815,666 +1025,456 @@ export default function LeadDetail() {
                         marginBottom: '0.2rem',
                       }}
                     >
-                      <Calendar size={11} style={{ display: 'inline', verticalAlign: 'middle' }} />{' '}
-                      Agendar Retorno
-                    </label>
-                    <input
-                      className="input"
-                      type="date"
-                      value={interactionFollowup}
-                      onChange={e => setInteractionFollowup(e.target.value)}
-                      style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
-                      min={new Date().toISOString().split('T')[0]}
-                    />
-                  </div>
-                  <div>
-                    <label
-                      style={{
-                        fontSize: '0.7rem',
-                        color: 'var(--text-muted)',
-                        display: 'block',
-                        marginBottom: '0.2rem',
-                      }}
-                    >
-                      Anexos
+                      Arquivo(s)
                     </label>
                     <input
                       type="file"
                       multiple
-                      onChange={e => setInteractionFiles(e.target.files)}
+                      onChange={e => setAttachFiles(e.target.files)}
                       style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
                     />
                   </div>
-                </div>
-                <button
-                  className="btn btn-primary btn-sm"
-                  disabled={!newInteraction.description.trim() || interactionMutation.isPending}
-                  onClick={() =>
-                    interactionMutation.mutate({
-                      ...newInteraction,
-                      followup_date: interactionFollowup || undefined,
-                      files: interactionFiles,
-                    })
-                  }
-                >
-                  {interactionMutation.isPending ? 'Registrando...' : 'Registrar Interação'}
-                </button>
-              </div>
-            )}
-
-            {/* Interaction timeline */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {interactions.length === 0 && (
-                <p
-                  style={{
-                    textAlign: 'center',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.85rem',
-                    padding: '1rem',
-                  }}
-                >
-                  Nenhuma interação registrada
-                </p>
-              )}
-              {interactions.map(msg => {
-                const typeInfo =
-                  INTERACTION_TYPES.find(t => t.value === msg.type) || INTERACTION_TYPES[5];
-                return (
-                  <div
-                    key={msg.id}
-                    style={{
-                      display: 'flex',
-                      gap: '0.75rem',
-                      padding: '0.75rem',
-                      borderRadius: '8px',
-                      background: 'rgba(255,255,255,0.02)',
-                      borderLeft: `3px solid ${typeInfo.color}`,
+                  <div style={{ flex: '1 1 auto', minWidth: 150 }}>
+                    <label
+                      style={{
+                        fontSize: '0.7rem',
+                        color: 'var(--text-muted)',
+                        display: 'block',
+                        marginBottom: '0.2rem',
+                      }}
+                    >
+                      Descrição (opcional)
+                    </label>
+                    <input
+                      className="input"
+                      value={attachDescription}
+                      onChange={e => setAttachDescription(e.target.value)}
+                      placeholder="Ex: Proposta comercial"
+                      style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
+                    />
+                  </div>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    disabled={
+                      !attachFiles || attachFiles.length === 0 || uploadAttachmentMutation.isPending
+                    }
+                    onClick={() => {
+                      if (attachFiles)
+                        uploadAttachmentMutation.mutate({
+                          files: attachFiles,
+                          description: attachDescription,
+                        });
                     }}
                   >
+                    {uploadAttachmentMutation.isPending ? 'Enviando...' : 'Anexar'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Attachment list */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {attachments.length === 0 && (
+                  <p
+                    style={{
+                      textAlign: 'center',
+                      color: 'var(--text-muted)',
+                      fontSize: '0.85rem',
+                      padding: '0.5rem',
+                    }}
+                  >
+                    Nenhum anexo
+                  </p>
+                )}
+                {attachments.map(att => (
+                  <div
+                    key={att.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.5rem 0.65rem',
+                      borderRadius: '6px',
+                      background: 'rgba(255,255,255,0.02)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    <span style={{ fontSize: '1rem' }}>{getFileIcon(att.mimetype)}</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div
+                      <p
                         style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          marginBottom: '0.3rem',
+                          fontSize: '0.8rem',
+                          color: '#fff',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
                         }}
                       >
-                        <span
-                          style={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            color: typeInfo.color,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.3rem',
-                          }}
-                        >
-                          {typeInfo.icon} {typeInfo.label}
-                        </span>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                          {new Date(msg.date).toLocaleString('pt-BR')}
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          fontSize: '0.825rem',
-                          color: 'var(--text-light)',
-                          lineHeight: 1.5,
-                        }}
-                        dangerouslySetInnerHTML={{ __html: msg.body }}
-                      />
-                      {msg.author_name && (
+                        {att.name}
+                      </p>
+                      {editingAttId === att.id ? (
+                        <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.2rem' }}>
+                          <input
+                            className="input"
+                            value={editAttDesc}
+                            onChange={e => setEditAttDesc(e.target.value)}
+                            placeholder="Descrição..."
+                            style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem', flex: 1 }}
+                            autoFocus
+                          />
+                          <button
+                            className="btn btn-primary btn-sm"
+                            style={{ padding: '0.15rem 0.4rem', fontSize: '0.7rem' }}
+                            onClick={() =>
+                              updateAttachmentMutation.mutate({
+                                attId: att.id,
+                                description: editAttDesc,
+                              })
+                            }
+                          >
+                            <Check size={12} />
+                          </button>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ padding: '0.15rem 0.4rem', fontSize: '0.7rem' }}
+                            onClick={() => setEditingAttId(null)}
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ) : (
                         <p
                           style={{
                             fontSize: '0.7rem',
                             color: 'var(--text-muted)',
-                            marginTop: '0.35rem',
+                            marginTop: '0.1rem',
                           }}
                         >
-                          — {msg.author_name}
+                          {att.description || 'Sem descrição'} · {formatFileSize(att.size)}
+                          {att.create_date &&
+                            ` · ${new Date(att.create_date).toLocaleDateString('pt-BR')}`}
                         </p>
                       )}
-                      {msg.attachments.length > 0 && (
-                        <div
-                          style={{
-                            marginTop: '0.35rem',
-                            display: 'flex',
-                            gap: '0.4rem',
-                            flexWrap: 'wrap',
-                          }}
-                        >
-                          {msg.attachments.map(a => (
-                            <span
-                              key={a.id}
-                              style={{
-                                fontSize: '0.7rem',
-                                padding: '0.2rem 0.4rem',
-                                borderRadius: '4px',
-                                background: 'rgba(255,255,255,0.05)',
-                                color: 'var(--text-muted)',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.25rem',
-                              }}
-                            >
-                              <Paperclip size={11} /> {a.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Attachments */}
-          <div className="glass" style={{ padding: '1.5rem' }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '1rem',
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.4rem',
-                }}
-              >
-                <Paperclip size={14} /> Anexos ({attachments.length})
-              </h3>
-            </div>
-
-            {/* Upload form */}
-            <div
-              style={{
-                marginBottom: '1rem',
-                padding: '0.75rem',
-                borderRadius: '8px',
-                background: 'rgba(255,255,255,0.03)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <div
-                style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end', flexWrap: 'wrap' }}
-              >
-                <div style={{ flex: '1 1 auto', minWidth: 150 }}>
-                  <label
-                    style={{
-                      fontSize: '0.7rem',
-                      color: 'var(--text-muted)',
-                      display: 'block',
-                      marginBottom: '0.2rem',
-                    }}
-                  >
-                    Arquivo(s)
-                  </label>
-                  <input
-                    type="file"
-                    multiple
-                    onChange={e => setAttachFiles(e.target.files)}
-                    style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}
-                  />
-                </div>
-                <div style={{ flex: '1 1 auto', minWidth: 150 }}>
-                  <label
-                    style={{
-                      fontSize: '0.7rem',
-                      color: 'var(--text-muted)',
-                      display: 'block',
-                      marginBottom: '0.2rem',
-                    }}
-                  >
-                    Descrição (opcional)
-                  </label>
-                  <input
-                    className="input"
-                    value={attachDescription}
-                    onChange={e => setAttachDescription(e.target.value)}
-                    placeholder="Ex: Proposta comercial"
-                    style={{ padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
-                  />
-                </div>
-                <button
-                  className="btn btn-primary btn-sm"
-                  disabled={
-                    !attachFiles || attachFiles.length === 0 || uploadAttachmentMutation.isPending
-                  }
-                  onClick={() => {
-                    if (attachFiles)
-                      uploadAttachmentMutation.mutate({
-                        files: attachFiles,
-                        description: attachDescription,
-                      });
-                  }}
-                >
-                  {uploadAttachmentMutation.isPending ? 'Enviando...' : 'Anexar'}
-                </button>
-              </div>
-            </div>
-
-            {/* Attachment list */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              {attachments.length === 0 && (
-                <p
-                  style={{
-                    textAlign: 'center',
-                    color: 'var(--text-muted)',
-                    fontSize: '0.85rem',
-                    padding: '0.5rem',
-                  }}
-                >
-                  Nenhum anexo
-                </p>
-              )}
-              {attachments.map(att => (
-                <div
-                  key={att.id}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.5rem 0.65rem',
-                    borderRadius: '6px',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid var(--border)',
-                  }}
-                >
-                  <span style={{ fontSize: '1rem' }}>{getFileIcon(att.mimetype)}</span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        setEditingAttId(att.id);
+                        setEditAttDesc(att.description);
+                      }}
+                      title="Editar descrição"
+                      style={{ padding: '0.2rem 0.35rem', fontSize: '0.7rem' }}
+                    >
+                      <Pencil size={12} />
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() =>
+                        window.open(
+                          crmUrl(`/crm/leads/${id}/attachments/${att.id}/download`),
+                          '_blank'
+                        )
+                      }
+                      title="Baixar"
+                      style={{ padding: '0.2rem 0.35rem', fontSize: '0.7rem' }}
+                    >
+                      <Download size={12} />
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => {
+                        if (confirm(`Remover "${att.name}"?`))
+                          deleteAttachmentMutation.mutate(att.id);
+                      }}
+                      title="Remover"
                       style={{
-                        fontSize: '0.8rem',
-                        color: '#fff',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                        padding: '0.2rem 0.35rem',
+                        fontSize: '0.7rem',
+                        color: 'var(--danger)',
                       }}
                     >
-                      {att.name}
-                    </p>
-                    {editingAttId === att.id ? (
-                      <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.2rem' }}>
-                        <input
-                          className="input"
-                          value={editAttDesc}
-                          onChange={e => setEditAttDesc(e.target.value)}
-                          placeholder="Descrição..."
-                          style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem', flex: 1 }}
-                          autoFocus
-                        />
-                        <button
-                          className="btn btn-primary btn-sm"
-                          style={{ padding: '0.15rem 0.4rem', fontSize: '0.7rem' }}
-                          onClick={() =>
-                            updateAttachmentMutation.mutate({
-                              attId: att.id,
-                              description: editAttDesc,
-                            })
-                          }
-                        >
-                          <Check size={12} />
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          style={{ padding: '0.15rem 0.4rem', fontSize: '0.7rem' }}
-                          onClick={() => setEditingAttId(null)}
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ) : (
-                      <p
-                        style={{
-                          fontSize: '0.7rem',
-                          color: 'var(--text-muted)',
-                          marginTop: '0.1rem',
-                        }}
-                      >
-                        {att.description || 'Sem descrição'} · {formatFileSize(att.size)}
-                        {att.create_date &&
-                          ` · ${new Date(att.create_date).toLocaleDateString('pt-BR')}`}
-                      </p>
-                    )}
+                      <Trash2 size={12} />
+                    </button>
                   </div>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => {
-                      setEditingAttId(att.id);
-                      setEditAttDesc(att.description);
-                    }}
-                    title="Editar descrição"
-                    style={{ padding: '0.2rem 0.35rem', fontSize: '0.7rem' }}
-                  >
-                    <Pencil size={12} />
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() =>
-                      window.open(
-                        crmUrl(`/crm/leads/${id}/attachments/${att.id}/download`),
-                        '_blank'
-                      )
-                    }
-                    title="Baixar"
-                    style={{ padding: '0.2rem 0.35rem', fontSize: '0.7rem' }}
-                  >
-                    <Download size={12} />
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => {
-                      if (confirm(`Remover "${att.name}"?`))
-                        deleteAttachmentMutation.mutate(att.id);
-                    }}
-                    title="Remover"
-                    style={{
-                      padding: '0.2rem 0.35rem',
-                      fontSize: '0.7rem',
-                      color: 'var(--danger)',
-                    }}
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Sidebar Info */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div className="glass" style={{ padding: '1.25rem' }}>
-            <h3
-              style={{
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                color: '#fff',
-                marginBottom: '0.75rem',
-              }}
-            >
-              Detalhes
-            </h3>
-            <DetailRow label="Responsável" value={lead.user_name || 'Não atribuído'} />
-            <DetailRow label="Equipe" value={lead.team_name || '—'} />
-            <DetailRow label="Empresa" value={lead.partner_name || '—'} />
-            <DetailRow label="Origem" value={lead.source_name || '—'} />
-            <DetailRow label="Cargo" value={lead.function || '—'} />
-            <DetailRow
-              label="Prazo"
-              value={
-                lead.date_deadline ? new Date(lead.date_deadline).toLocaleDateString('pt-BR') : '—'
-              }
-            />
-            <DetailRow
-              label="Criado em"
-              value={new Date(lead.create_date).toLocaleDateString('pt-BR')}
-            />
-            <DetailRow
-              label="Última atualização"
-              value={new Date(lead.write_date).toLocaleDateString('pt-BR')}
-            />
-            {lead.date_closed && (
+          <div className="card bg-base-300">
+            <div className="card-body p-5">
+              <h3 className="text-sm font-semibold mb-3">Detalhes</h3>
+              <DetailRow label="Equipe" value={lead.team_name || '—'} />
+              <DetailRow label="Empresa" value={lead.partner_name || '—'} />
+              <DetailRow label="Origem" value={lead.source_name || '—'} />
+              <DetailRow label="Cargo" value={lead.function || '—'} />
               <DetailRow
-                label="Encerrado em"
-                value={new Date(lead.date_closed).toLocaleDateString('pt-BR')}
+                label="Prazo"
+                value={
+                  lead.date_deadline
+                    ? new Date(lead.date_deadline).toLocaleDateString('pt-BR')
+                    : '—'
+                }
               />
-            )}
-            {lead.lost_reason && <DetailRow label="Motivo da perda" value={lead.lost_reason} />}
+              <DetailRow
+                label="Criado em"
+                value={new Date(lead.create_date).toLocaleDateString('pt-BR')}
+              />
+              <DetailRow
+                label="Última atualização"
+                value={new Date(lead.write_date).toLocaleDateString('pt-BR')}
+              />
+              {lead.date_closed && (
+                <DetailRow
+                  label="Encerrado em"
+                  value={new Date(lead.date_closed).toLocaleDateString('pt-BR')}
+                />
+              )}
+              {lead.lost_reason && <DetailRow label="Motivo da perda" value={lead.lost_reason} />}
+            </div>
           </div>
 
-          <div className="glass" style={{ padding: '1.25rem' }}>
-            <h3
-              style={{
-                fontSize: '0.9rem',
-                fontWeight: 600,
-                color: '#fff',
-                marginBottom: '0.75rem',
-              }}
-            >
-              Localização
-            </h3>
-            <DetailRow label="Endereço" value={lead.street || '—'} />
-            <DetailRow label="Cidade" value={lead.city || '—'} />
-            <DetailRow label="Estado" value={lead.state_name || '—'} />
-            <DetailRow label="País" value={lead.country_name || '—'} />
+          <div className="card bg-base-300">
+            <div className="card-body p-5">
+              <h3 className="text-sm font-semibold mb-3">Localização</h3>
+              <DetailRow label="Endereço" value={lead.street || '—'} />
+              <DetailRow label="Cidade" value={lead.city || '—'} />
+              <DetailRow label="Estado" value={lead.state_name || '—'} />
+              <DetailRow label="País" value={lead.country_name || '—'} />
+            </div>
           </div>
 
           {/* Custom Fields */}
-          <div className="glass" style={{ padding: '1.25rem' }}>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '0.75rem',
-              }}
-            >
-              <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff' }}>
-                <Tag size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Campos
-                Personalizados
-              </h3>
-              {unsetGlobalFields.length > 0 && (
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setShowAddField(!showAddField)}
-                  style={{ fontSize: '0.7rem', padding: '0.2rem 0.4rem' }}
-                >
-                  {showAddField ? <X size={13} /> : '+ Campo'}
-                </button>
-              )}
-            </div>
-
-            {/* Add global field to this lead */}
-            {showAddField && unsetGlobalFields.length > 0 && (
+          <div className="card bg-base-300">
+            <div className="card-body p-5">
               <div
                 style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                   marginBottom: '0.75rem',
-                  padding: '0.65rem',
-                  borderRadius: '6px',
-                  background: 'rgba(255,255,255,0.03)',
-                  border: '1px solid var(--border)',
                 }}
               >
-                <label
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: '#fff' }}>
+                  <Tag size={14} style={{ display: 'inline', verticalAlign: 'middle' }} /> Campos
+                  Personalizados
+                </h3>
+                {unsetGlobalFields.length > 0 && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => setShowAddField(!showAddField)}
+                    style={{ fontSize: '0.7rem', padding: '0.2rem 0.4rem' }}
+                  >
+                    {showAddField ? <X size={13} /> : '+ Campo'}
+                  </button>
+                )}
+              </div>
+
+              {/* Add global field to this lead */}
+              {showAddField && unsetGlobalFields.length > 0 && (
+                <div
                   style={{
-                    fontSize: '0.7rem',
-                    color: 'var(--info)',
-                    display: 'block',
-                    marginBottom: '0.3rem',
+                    marginBottom: '0.75rem',
+                    padding: '0.65rem',
+                    borderRadius: '6px',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid var(--border)',
                   }}
                 >
-                  Adicionar campo:
-                </label>
-                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                  {unsetGlobalFields.map(def => (
-                    <button
-                      key={def.id}
-                      className="btn btn-ghost btn-sm"
-                      style={{
-                        fontSize: '0.7rem',
-                        padding: '0.2rem 0.5rem',
-                        border: '1px solid var(--border)',
-                      }}
-                      onClick={() => setCustomFieldMutation.mutate({ field_id: def.id, value: '' })}
-                    >
-                      + {def.name}
-                    </button>
-                  ))}
+                  <label
+                    style={{
+                      fontSize: '0.7rem',
+                      color: 'var(--info)',
+                      display: 'block',
+                      marginBottom: '0.3rem',
+                    }}
+                  >
+                    Adicionar campo:
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                    {unsetGlobalFields.map(def => (
+                      <button
+                        key={def.id}
+                        className="btn btn-ghost btn-sm"
+                        style={{
+                          fontSize: '0.7rem',
+                          padding: '0.2rem 0.5rem',
+                          border: '1px solid var(--border)',
+                        }}
+                        onClick={() =>
+                          setCustomFieldMutation.mutate({ field_id: def.id, value: '' })
+                        }
+                      >
+                        + {def.name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Custom field values */}
-            {customFieldValues.length === 0 && !showAddField && (
-              <p
-                style={{
-                  fontSize: '0.8rem',
-                  color: 'var(--text-muted)',
-                  textAlign: 'center',
-                  padding: '0.5rem 0',
-                }}
-              >
-                {fieldDefs.length === 0
-                  ? 'Nenhum campo personalizado definido'
-                  : 'Nenhum campo personalizado'}
-              </p>
-            )}
-            {customFieldValues.map(cfv => (
-              <CustomFieldRow
-                key={cfv.id}
-                cfv={cfv}
-                onSave={value => setCustomFieldMutation.mutate({ field_id: cfv.field_id!, value })}
-                onDelete={() => deleteCustomFieldMutation.mutate(cfv.id)}
-                fieldDef={cfv.field_id ? fieldDefs.find(d => d.id === cfv.field_id) : undefined}
-              />
-            ))}
+              {/* Custom field values */}
+              {customFieldValues.length === 0 && !showAddField && (
+                <p
+                  style={{
+                    fontSize: '0.8rem',
+                    color: 'var(--text-muted)',
+                    textAlign: 'center',
+                    padding: '0.5rem 0',
+                  }}
+                >
+                  {fieldDefs.length === 0
+                    ? 'Nenhum campo personalizado definido'
+                    : 'Nenhum campo personalizado'}
+                </p>
+              )}
+              {customFieldValues.map(cfv => (
+                <CustomFieldRow
+                  key={cfv.id}
+                  cfv={cfv}
+                  onSave={value =>
+                    setCustomFieldMutation.mutate({ field_id: cfv.field_id!, value })
+                  }
+                  onDelete={() => deleteCustomFieldMutation.mutate(cfv.id)}
+                  fieldDef={cfv.field_id ? fieldDefs.find(d => d.id === cfv.field_id) : undefined}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Cross-Product Integrations */}
           {integrationActions.length > 0 && (
-            <div className="glass" style={{ padding: '1.25rem' }}>
-              <h3
-                style={{
-                  fontSize: '0.9rem',
-                  fontWeight: 600,
-                  color: '#fff',
-                  marginBottom: '0.75rem',
-                }}
-              >
-                <Link size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />{' '}
-                Integrações
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {hasAction('open_conversation') && (
-                  <button
-                    className="btn btn-sm"
+            <div className="card bg-base-300">
+              <div className="card-body p-5">
+                <h3 className="text-sm font-semibold mb-3">
+                  <Link size={14} style={{ display: 'inline', verticalAlign: 'middle' }} />{' '}
+                  Integrações
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {hasAction('open_conversation') && (
+                    <button
+                      className="btn btn-sm"
+                      style={{
+                        width: '100%',
+                        justifyContent: 'flex-start',
+                        gap: '0.5rem',
+                        background: 'rgba(52,199,89,0.1)',
+                        border: '1px solid rgba(52,199,89,0.3)',
+                        color: 'var(--success)',
+                        fontSize: '0.8rem',
+                      }}
+                      onClick={() => openConversationMutation.mutate()}
+                      disabled={openConversationMutation.isPending || !(lead.mobile || lead.phone)}
+                      title={
+                        !(lead.mobile || lead.phone)
+                          ? 'Lead sem telefone/celular'
+                          : 'Abrir conversa no Nexus'
+                      }
+                    >
+                      {openConversationMutation.isPending ? (
+                        'Abrindo...'
+                      ) : (
+                        <>
+                          <MessageSquare size={14} /> Abrir WhatsApp (Nexus)
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {hasAction('send_whatsapp') && !hasAction('open_conversation') && (
+                    <button
+                      className="btn btn-sm"
+                      style={{
+                        width: '100%',
+                        justifyContent: 'flex-start',
+                        gap: '0.5rem',
+                        background: 'rgba(52,199,89,0.1)',
+                        border: '1px solid rgba(52,199,89,0.3)',
+                        color: 'var(--success)',
+                        fontSize: '0.8rem',
+                      }}
+                      onClick={() => openConversationMutation.mutate()}
+                      disabled={openConversationMutation.isPending || !(lead.mobile || lead.phone)}
+                    >
+                      {openConversationMutation.isPending ? (
+                        'Enviando...'
+                      ) : (
+                        <>
+                          <MessageSquare size={14} /> Enviar WhatsApp
+                        </>
+                      )}
+                    </button>
+                  )}
+                  {hasAction('lookup_cnpj') && (
+                    <button
+                      className="btn btn-sm"
+                      style={{
+                        width: '100%',
+                        justifyContent: 'flex-start',
+                        gap: '0.5rem',
+                        background: 'rgba(0,112,255,0.1)',
+                        border: '1px solid rgba(0,112,255,0.3)',
+                        color: 'var(--info)',
+                        fontSize: '0.8rem',
+                      }}
+                      onClick={() => enrichCnpjMutation.mutate(undefined)}
+                      disabled={enrichCnpjMutation.isPending}
+                    >
+                      {enrichCnpjMutation.isPending ? (
+                        'Consultando...'
+                      ) : (
+                        <>
+                          <Search size={14} /> Consultar CNPJ (Entity)
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+
+                {/* Enriched CNPJ data */}
+                {enrichedData && (
+                  <div
                     style={{
-                      width: '100%',
-                      justifyContent: 'flex-start',
-                      gap: '0.5rem',
-                      background: 'rgba(52,199,89,0.1)',
-                      border: '1px solid rgba(52,199,89,0.3)',
-                      color: 'var(--success)',
-                      fontSize: '0.8rem',
+                      marginTop: '0.75rem',
+                      padding: '0.65rem',
+                      borderRadius: '6px',
+                      background: 'rgba(0,112,255,0.05)',
+                      border: '1px solid rgba(0,112,255,0.15)',
                     }}
-                    onClick={() => openConversationMutation.mutate()}
-                    disabled={openConversationMutation.isPending || !(lead.mobile || lead.phone)}
-                    title={
-                      !(lead.mobile || lead.phone)
-                        ? 'Lead sem telefone/celular'
-                        : 'Abrir conversa no Nexus'
-                    }
                   >
-                    {openConversationMutation.isPending ? (
-                      'Abrindo...'
-                    ) : (
-                      <>
-                        <MessageSquare size={14} /> Abrir WhatsApp (Nexus)
-                      </>
-                    )}
-                  </button>
-                )}
-                {hasAction('send_whatsapp') && !hasAction('open_conversation') && (
-                  <button
-                    className="btn btn-sm"
-                    style={{
-                      width: '100%',
-                      justifyContent: 'flex-start',
-                      gap: '0.5rem',
-                      background: 'rgba(52,199,89,0.1)',
-                      border: '1px solid rgba(52,199,89,0.3)',
-                      color: 'var(--success)',
-                      fontSize: '0.8rem',
-                    }}
-                    onClick={() => openConversationMutation.mutate()}
-                    disabled={openConversationMutation.isPending || !(lead.mobile || lead.phone)}
-                  >
-                    {openConversationMutation.isPending ? (
-                      'Enviando...'
-                    ) : (
-                      <>
-                        <MessageSquare size={14} /> Enviar WhatsApp
-                      </>
-                    )}
-                  </button>
-                )}
-                {hasAction('lookup_cnpj') && (
-                  <button
-                    className="btn btn-sm"
-                    style={{
-                      width: '100%',
-                      justifyContent: 'flex-start',
-                      gap: '0.5rem',
-                      background: 'rgba(0,112,255,0.1)',
-                      border: '1px solid rgba(0,112,255,0.3)',
-                      color: 'var(--info)',
-                      fontSize: '0.8rem',
-                    }}
-                    onClick={() => enrichCnpjMutation.mutate(undefined)}
-                    disabled={enrichCnpjMutation.isPending}
-                  >
-                    {enrichCnpjMutation.isPending ? (
-                      'Consultando...'
-                    ) : (
-                      <>
-                        <Search size={14} /> Consultar CNPJ (Entity)
-                      </>
-                    )}
-                  </button>
+                    <p
+                      style={{
+                        fontSize: '0.7rem',
+                        color: 'var(--info)',
+                        fontWeight: 600,
+                        marginBottom: '0.4rem',
+                      }}
+                    >
+                      Dados CNPJ
+                    </p>
+                    {Object.entries(enrichedData)
+                      .slice(0, 8)
+                      .map(([key, val]) => (
+                        <div
+                          key={key}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            padding: '0.2rem 0',
+                            fontSize: '0.7rem',
+                          }}
+                        >
+                          <span style={{ color: 'var(--text-muted)' }}>
+                            {key.replace(/_/g, ' ')}
+                          </span>
+                          <span style={{ color: '#fff', textAlign: 'right', maxWidth: '60%' }}>
+                            {String(val) || '—'}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
                 )}
               </div>
-
-              {/* Enriched CNPJ data */}
-              {enrichedData && (
-                <div
-                  style={{
-                    marginTop: '0.75rem',
-                    padding: '0.65rem',
-                    borderRadius: '6px',
-                    background: 'rgba(0,112,255,0.05)',
-                    border: '1px solid rgba(0,112,255,0.15)',
-                  }}
-                >
-                  <p
-                    style={{
-                      fontSize: '0.7rem',
-                      color: 'var(--info)',
-                      fontWeight: 600,
-                      marginBottom: '0.4rem',
-                    }}
-                  >
-                    Dados CNPJ
-                  </p>
-                  {Object.entries(enrichedData)
-                    .slice(0, 8)
-                    .map(([key, val]) => (
-                      <div
-                        key={key}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          padding: '0.2rem 0',
-                          fontSize: '0.7rem',
-                        }}
-                      >
-                        <span style={{ color: 'var(--text-muted)' }}>{key.replace(/_/g, ' ')}</span>
-                        <span style={{ color: '#fff', textAlign: 'right', maxWidth: '60%' }}>
-                          {String(val) || '—'}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -1613,25 +1613,27 @@ function Modal({
       }}
       onClick={onClose}
     >
-      <div
-        className="glass"
-        style={{ width: '100%', maxWidth: 440, padding: '2rem' }}
-        onClick={e => e.stopPropagation()}
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '1.25rem',
-          }}
-        >
-          <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>{title}</h2>
-          <button className="btn btn-ghost" onClick={onClose} style={{ padding: '0.25rem 0.5rem' }}>
-            <X size={14} />
-          </button>
+      <div className="card bg-base-300 w-full max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="card-body">
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '1.25rem',
+            }}
+          >
+            <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#fff' }}>{title}</h2>
+            <button
+              className="btn btn-ghost"
+              onClick={onClose}
+              style={{ padding: '0.25rem 0.5rem' }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+          {children}
         </div>
-        {children}
       </div>
     </div>
   );

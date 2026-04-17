@@ -1,0 +1,346 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.cdnfonts.com/css/sansation');
+
+@import "tailwindcss";
+
+@plugin "daisyui" {
+  themes: igara --default;
+}
+
+@plugin "daisyui/theme" {
+  name: "igara";
+  default: true;
+  color-scheme: dark;
+
+  --color-base-100: #07080f;
+  --color-base-200: #0d0f1a;
+  --color-base-300: #161929;
+  --color-base-content: #e2e4f0;
+
+  --color-primary: #0085ff;
+  --color-primary-content: #ffffff;
+  --color-secondary: #9333ea;
+  --color-secondary-content: #ffffff;
+  --color-accent: #22d3ee;
+  --color-accent-content: #07080f;
+  --color-neutral: #0d0f1a;
+  --color-neutral-content: #e2e4f0;
+
+  --color-info: #0085ff;
+  --color-info-content: #ffffff;
+  --color-success: #22c55e;
+  --color-success-content: #ffffff;
+  --color-warning: #f59e0b;
+  --color-warning-content: #07080f;
+  --color-error: #f43f5e;
+  --color-error-content: #ffffff;
+
+  --radius-box: 16px;
+  --radius-selector: 10px;
+  --radius-field: 8px;
+  --border: 1px;
+}
+
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --font-brand: 'Sansation', 'Space Grotesk', sans-serif;
+  --font-body: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius-glass: 20px;
+  --radius-glass-sm: 12px;
+
+  --spacing-sidebar: 260px;
+
+  --shadow-glow-primary: 0 0 20px rgba(0, 133, 255, 0.35), 0 0 60px rgba(0, 133, 255, 0.12);
+  --shadow-glow-secondary: 0 0 20px rgba(147, 51, 234, 0.35), 0 0 60px rgba(147, 51, 234, 0.12);
+  --shadow-glow-sm: 0 0 10px rgba(0, 133, 255, 0.25);
+  --shadow-glass: 0 4px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  --animate-fade-in: fade-in 0.4s ease-out;
+  --animate-progress-pulse: progress-pulse 2s ease-in-out infinite;
+  --animate-glow-pulse: glow-pulse 3s ease-in-out infinite;
+  --animate-float: float 4s ease-in-out infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes progress-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(0, 133, 255, 0.35); }
+  50% { box-shadow: 0 0 40px rgba(147, 51, 234, 0.5), 0 0 80px rgba(0, 133, 255, 0.2); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { left: -60%; }
+  100% { left: 110%; }
+}
+
+html {
+  font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.05); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.1); }
+
+/* ── Brand ── */
+.brand-text,
+.brand-name {
+  font-family: 'Sansation', 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  display: inline-block;
+  background: linear-gradient(90deg, #9333ea 0%, #0085ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.brand-gradient {
+  background: linear-gradient(135deg, #9333ea 0%, #0085ff 100%);
+}
+
+.hero-gradient {
+  background: linear-gradient(135deg, #9333ea 0%, #0085ff 60%, #22d3ee 100%);
+}
+
+/* ── Glass morphism ── */
+.glass {
+  background: rgba(13, 15, 26, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 20px;
+}
+
+.glass-bright {
+  background: rgba(22, 25, 41, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+}
+
+/* ── Glow utilities ── */
+.glow-primary {
+  box-shadow: 0 0 20px rgba(0, 133, 255, 0.4), 0 0 60px rgba(0, 133, 255, 0.12);
+}
+
+.glow-secondary {
+  box-shadow: 0 0 20px rgba(147, 51, 234, 0.4), 0 0 60px rgba(147, 51, 234, 0.12);
+}
+
+.glow-sm {
+  box-shadow: 0 0 10px rgba(0, 133, 255, 0.3);
+}
+
+/* ── Dot grid background ── */
+.dot-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ── Radial glow backdrop ── */
+.radial-glow-primary {
+  background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(0, 133, 255, 0.15) 0%, transparent 70%);
+}
+
+.radial-glow-secondary {
+  background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(147, 51, 234, 0.15) 0%, transparent 70%);
+}
+
+/* ── Inline helpers ── */
+.label-eyebrow {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(226, 228, 240, 0.3);
+}
+
+.card-inset {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+}
+
+/* ── Button glass sheen ── */
+.btn-glass {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-glass::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, transparent 100%);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+/* ── Progress shimmer ── */
+.progress-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 1.8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* ── Kanban Board ── */
+.kanban-board {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  min-height: 0;
+}
+
+.kanban-column {
+  min-width: 280px;
+  max-width: 320px;
+  flex-shrink: 0;
+  background: rgba(26, 31, 46, 0.4);
+  border: 1px solid #2d3847;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 220px);
+}
+
+.kanban-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #2d3847;
+  flex-shrink: 0;
+}
+
+.kanban-column-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  display: flex;
+  align-items: center;
+}
+
+.kanban-column-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #a6acbb;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+
+.kanban-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.kanban-card {
+  padding: 0.75rem;
+  background: #0d0f1a;
+  border: 1px solid #2d3847;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.kanban-card:hover {
+  border-color: #0085ff;
+  background: rgba(0, 112, 255, 0.06);
+}
+
+.kanban-card[draggable="true"] {
+  cursor: grab;
+}
+
+.kanban-card-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.3rem;
+  display: flex;
+  align-items: center;
+}
+
+.kanban-card-meta {
+  font-size: 0.75rem;
+  color: #a6acbb;
+}
+
+/* ── Animations ── */
+.animate-in {
+  animation: fadeIn 0.4s ease-out;
+}
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .mobile-menu-btn {
+    display: flex;
+  }
+  .main-content {
+    margin-left: 0 !important;
+  }
+  .sidebar-overlay.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 40;
+  }
+  .sidebar:not(.open) {
+    transform: translateX(-100%);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+    z-index: 45;
+    position: fixed;
+  }
+}

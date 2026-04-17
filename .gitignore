@@ -19,6 +19,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+stack.env
 
 # ========================
 # Python
@@ -71,3 +72,4 @@ htmlcov/
 .coverage
 .coverage.*
 coverage/
+*.db

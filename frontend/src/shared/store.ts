@@ -1,8 +1,9 @@
 import { create } from 'zustand';
-import { apiFetch, setApiOrgId } from './api';
+import { apiFetch, setApiOrgSlug } from './api';
 
 interface UserOrg {
   id: number;
+  slug: string;
   hub_org_id: string;
   name: string;
   role: string;
@@ -41,7 +42,7 @@ export const useAuth = create<AuthState>(set => ({
   },
 
   setCurrentOrg: org => {
-    setApiOrgId(org?.id ?? null);
+    setApiOrgSlug(org?.slug ?? null);
     set({ currentOrg: org });
   },
 
@@ -49,7 +50,7 @@ export const useAuth = create<AuthState>(set => ({
     await fetch('/amplex/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(
       () => {}
     );
-    setApiOrgId(null);
+    setApiOrgSlug(null);
     set({ user: null, currentOrg: null });
   },
 }));

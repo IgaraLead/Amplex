@@ -16,11 +16,7 @@ const Settings = React.lazy(() => import('./modules/settings/Settings'));
 function Suspense({ children }: { children: React.ReactNode }) {
   return (
     <React.Suspense
-      fallback={
-        <div style={{ padding: '2rem', textAlign: 'center', color: 'rgba(255,255,255,0.5)' }}>
-          Carregando...
-        </div>
-      }
+      fallback={<div className="p-8 text-center text-base-content/50">Carregando...</div>}
     >
       {children}
     </React.Suspense>
@@ -48,7 +44,7 @@ export default function App() {
             </Suspense>
           }
         />
-        <Route path="/o/:orgId" element={<AppLayout />}>
+        <Route path="/id/:slug" element={<AppLayout />}>
           <Route
             path="dashboard"
             element={

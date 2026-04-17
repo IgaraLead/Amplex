@@ -1,301 +1,260 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* ═══════════════════════════════════════════════════════════
-   IgaraLead Design System – Dark Glassmorphism
-   Brand Font: Sansation · Body: Space Grotesk
-   Palette: Deep Purple → Electric Blue
-   ═══════════════════════════════════════════════════════════ */
-
 @layer base {
   :root {
-    /* ── Glass ── */
-    --glass-bg: rgba(26, 31, 46, 0.55);
-    --glass-bg-strong: rgba(26, 31, 46, 0.75);
-    --glass-border: rgba(45, 56, 71, 0.5);
-    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
-    --blur: 12px;
-    --radius: 20px;
-    --radius-sm: 12px;
-
-    /* ── Brand ── */
-    --primary: #0070ff;
-    --primary-hover: #005cd9;
-    --primary-deep-purple: hsl(268, 100%, 60%);
-    --primary-electric-blue: hsl(213, 100%, 60%);
-    --brand-gradient: linear-gradient(
-      135deg,
-      var(--primary-deep-purple) 0%,
-      var(--primary-electric-blue) 100%
-    );
-
-    /* ── Semantic ── */
+    /* ── Compatibility variables (mapped to DaisyUI igara theme) ── */
+    --primary: #0085ff;
     --success: #22c55e;
     --warning: #f59e0b;
-    --danger: #ff3333;
-
-    /* ── Surfaces ── */
-    --background: #0a0e1a;
-    --card: #1a1f2e;
-    --secondary: #2d3142;
-    --border: #2d3847;
-    --border-subtle: #464f63;
-
-    /* ── Text ── */
-    --text: #d9d9d9;
+    --danger: #f43f5e;
+    --text: #e2e4f0;
     --text-muted: #a6acbb;
     --text-light: #787c8b;
-
+    --background: #07080f;
+    --card: #0d0f1a;
+    --secondary: #161929;
+    --border: #2d3847;
+    --border-subtle: #464f63;
+    --glass-border: rgba(45, 56, 71, 0.5);
+    --radius: 20px;
+    --radius-sm: 12px;
     --sidebar-width: 260px;
   }
 
-  *,
-  *::before,
-  *::after {
-    box-sizing: border-box;
+  html {
+    font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
-    font-family:
-      'Space Grotesk',
-      system-ui,
-      -apple-system,
-      sans-serif;
-    background-color: var(--background);
+    margin: 0;
     min-height: 100vh;
-    color: var(--text);
-    -webkit-font-smoothing: antialiased;
   }
 
-  #root {
-    min-height: 100vh;
-    position: relative;
-    z-index: 1;
-  }
-
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.08);
-    border-radius: 3px;
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.15);
-  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
 }
 
 @layer components {
-  /* ─── Glass Cards ─────────────────────────────────────────── */
-  .glass {
-    background: rgba(50, 50, 50, 0.15);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
-    border-radius: var(--radius);
-    border: 1px solid rgba(50, 50, 50, 0.3);
-    box-shadow:
-      0 8px 32px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(50, 50, 50, 0.5),
-      inset 0 -1px 0 rgba(50, 50, 50, 0.1),
-      inset 0 0 4px 2px rgba(50, 50, 50, 0.2);
-    position: relative;
-    transition: all 300ms ease;
+  /* ── Brand ── */
+  .brand-text {
+    font-family: 'Sansation', 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    background: linear-gradient(135deg, hsl(268, 100%, 60%), hsl(213, 100%, 60%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
-  .glass::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(50, 50, 50, 0.8), transparent);
-    z-index: 1;
-    pointer-events: none;
-  }
-
-  .glass-strong {
-    background: var(--glass-bg-strong);
-    backdrop-filter: blur(var(--blur));
-    -webkit-backdrop-filter: blur(var(--blur));
-    border-radius: var(--radius);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
-    position: relative;
-    overflow: hidden;
-    transition: all 300ms ease;
-  }
-
-  /* ─── Buttons ─────────────────────────────────────────────── */
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.625rem 1.25rem;
-    border-radius: var(--radius-sm);
-    border: none;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.875rem;
-    transition: all 0.3s ease;
-    font-family: inherit;
-  }
-
-  .btn-primary {
-    background: var(--brand-gradient);
-    color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-  }
-
-  .btn-primary:hover {
-    box-shadow:
-      0 0 20px var(--primary-deep-purple),
-      0 0 40px rgba(59, 130, 246, 0.3);
-    transform: translateY(-2px);
-  }
-
-  .btn-danger {
-    background: rgba(255, 51, 51, 0.15);
-    color: var(--danger);
-    border: 1px solid rgba(255, 51, 51, 0.3);
-  }
-
-  .btn-danger:hover {
-    background: rgba(255, 51, 51, 0.25);
-    box-shadow: 0 0 16px rgba(255, 51, 51, 0.2);
-  }
-
-  .btn-ghost {
-    background: rgba(255, 255, 255, 0.06);
-    color: var(--text-muted);
-    border: 1px solid var(--glass-border);
-  }
-
-  .btn-ghost:hover {
-    background: rgba(255, 255, 255, 0.12);
-    color: #fff;
-    border-color: var(--border-subtle);
-  }
-
-  .btn-sm {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.8rem;
-  }
-
-  /* ─── Brand Name ──────────────────────────────────────────── */
   .brand-name {
     font-family: 'Sansation', 'Space Grotesk', sans-serif;
     font-weight: 700;
-    background: var(--brand-gradient);
+    background: linear-gradient(135deg, hsl(268, 100%, 60%), hsl(213, 100%, 60%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .gradient-text {
-    background: var(--brand-gradient);
+    background: linear-gradient(135deg, hsl(268, 100%, 60%), hsl(213, 100%, 60%));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  /* ─── Form Fields ─────────────────────────────────────────── */
-  .input {
-    width: 100%;
-    padding: 0.625rem 0.875rem;
-    border-radius: var(--radius-sm);
+  .brand-gradient {
+    background: linear-gradient(135deg, hsl(268, 100%, 60%), hsl(213, 100%, 60%));
+  }
+
+  /* ── Stat Grid (Dashboard) ── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .stat-card {
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .stat-card-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+  }
+
+  .stat-card-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.2;
+  }
+
+  .stat-card-change {
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin-top: 0.15rem;
+  }
+
+  /* ── Kanban Board (Pipeline) ── */
+  .kanban-board {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 1rem;
+    min-height: 0;
+  }
+
+  .kanban-column {
+    min-width: 280px;
+    max-width: 320px;
+    flex-shrink: 0;
+    background: rgba(26, 31, 46, 0.4);
     border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    color: var(--text);
-    font-size: 0.875rem;
-    font-family: inherit;
-    transition:
-      border-color 0.2s ease,
-      box-shadow 0.2s ease;
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 220px);
+  }
+
+  .kanban-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .kanban-column-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    display: flex;
+    align-items: center;
+  }
+
+  .kanban-column-count {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.06);
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+  }
+
+  .kanban-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .kanban-card {
+    padding: 0.75rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .kanban-card:hover {
+    border-color: var(--primary);
+    background: rgba(0, 112, 255, 0.06);
+  }
+
+  .kanban-card[draggable="true"] {
+    cursor: grab;
+  }
+
+  .kanban-card-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #fff;
+    margin-bottom: 0.3rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .kanban-card-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  /* ── Pagination ── */
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 1rem 0;
+  }
+
+  .pagination button {
+    @apply btn btn-sm btn-ghost;
+    font-size: 0.8rem;
+  }
+
+  .pagination button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* ── Form input/select borders (dark theme visibility) ── */
+  .input {
+    border: 1px solid var(--border) !important;
   }
 
   .input:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(0, 112, 255, 0.15);
-  }
-
-  .input::placeholder {
-    color: var(--text-light);
+    border-color: var(--primary) !important;
   }
 
   .select {
-    width: 100%;
-    padding: 0.625rem 0.875rem;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: rgba(255, 255, 255, 0.05);
-    backdrop-filter: blur(4px);
-    -webkit-backdrop-filter: blur(4px);
-    color: var(--text);
-    font-size: 0.875rem;
-    font-family: inherit;
-    cursor: pointer;
-    appearance: none;
-    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%23a6acbb' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'%3E%3Cpath d='m2 4 4 4 4-4'/%3E%3C/svg%3E");
-    background-position: right 0.75rem center;
-    background-repeat: no-repeat;
-    padding-right: 2rem;
+    border: 1px solid var(--border) !important;
   }
 
   .select:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(0, 112, 255, 0.15);
+    border-color: var(--primary) !important;
   }
 
-  textarea.input {
-    resize: vertical;
-    min-height: 80px;
+  /* ── Layout Utilities ── */
+  .page {
+    padding: 2rem;
   }
 
-  /* ─── Badges ──────────────────────────────────────────────── */
-  .badge {
-    display: inline-flex;
+  .page-header {
+    display: flex;
     align-items: center;
-    padding: 0.2rem 0.6rem;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 500;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
   }
 
-  .badge-success {
-    background: rgba(34, 197, 94, 0.15);
-    color: var(--success);
-    border: 1px solid rgba(34, 197, 94, 0.3);
+  .page-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: oklch(var(--bc));
   }
 
-  .badge-warning {
-    background: rgba(245, 158, 11, 0.15);
-    color: var(--warning);
-    border: 1px solid rgba(245, 158, 11, 0.3);
-  }
-
-  .badge-danger {
-    background: rgba(255, 51, 51, 0.15);
-    color: var(--danger);
-    border: 1px solid rgba(255, 51, 51, 0.3);
-  }
-
-  .badge-info {
-    background: rgba(0, 112, 255, 0.15);
-    color: var(--primary);
-    border: 1px solid rgba(0, 112, 255, 0.3);
-  }
-
-  /* ─── Tables ──────────────────────────────────────────────── */
+  /* ── Table Container ── */
   .table-container {
     overflow-x: auto;
     border-radius: var(--radius-sm);
@@ -328,244 +287,25 @@
     background: rgba(0, 112, 255, 0.06);
   }
 
-  /* ─── Page Layout ─────────────────────────────────────────── */
-  .page {
-    padding: 2rem;
+  /* ── Animations ── */
+  .animate-in {
+    animation: fadeIn 0.4s ease-out;
   }
 
-  .page-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 1.5rem;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-
-  .page-title {
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: #fff;
-  }
-
-  /* ─── Stat Cards ──────────────────────────────────────────── */
-  .stat-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .stat-card {
-    padding: 1.25rem;
-  }
-
-  .stat-card-label {
-    font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.5rem;
-  }
-
-  .stat-card-value {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #fff;
-  }
-
-  .stat-card-change {
-    font-size: 0.75rem;
-    margin-top: 0.35rem;
-  }
-
-  /* ─── Sidebar Nav ─────────────────────────────────────────── */
+  /* ── Sidebar Nav ── */
   .sidebar-nav-btn {
     position: relative;
     overflow: hidden;
-  }
-
-  .sidebar-nav-btn::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 60%;
-    height: 100%;
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      rgba(255, 255, 255, 0.06) 30%,
-      rgba(255, 255, 255, 0.12) 50%,
-      rgba(255, 255, 255, 0.06) 70%,
-      transparent 100%
-    );
-    transform: skewX(-20deg);
-    transition: none;
-    pointer-events: none;
+    transition: all 0.2s ease;
   }
 
   .sidebar-nav-btn:hover {
     background: rgba(255, 255, 255, 0.05) !important;
     border-color: rgba(255, 255, 255, 0.1) !important;
-    box-shadow:
-      0 0 20px rgba(0, 112, 255, 0.08),
-      inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
     color: #fff !important;
-    backdrop-filter: blur(12px);
   }
 
-  .sidebar-nav-btn:hover::before {
-    animation: glassShine 0.8s ease-in-out forwards;
-  }
-
-  /* ─── Animate In ──────────────────────────────────────────── */
-  .animate-in {
-    animation: fadeIn 0.4s ease-out;
-  }
-
-  /* ─── Kanban (Amplex-specific) ────────────────────────────── */
-  .kanban-board {
-    display: flex;
-    gap: 1rem;
-    overflow-x: auto;
-    padding-bottom: 1rem;
-    min-height: calc(100vh - 180px);
-  }
-
-  .kanban-column {
-    min-width: 300px;
-    max-width: 320px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .kanban-column-header {
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius-sm);
-    background: rgba(26, 31, 46, 0.5);
-    border: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .kanban-column-title {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: #fff;
-  }
-
-  .kanban-column-count {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    background: rgba(255, 255, 255, 0.06);
-    padding: 0.15rem 0.5rem;
-    border-radius: 999px;
-  }
-
-  .kanban-cards {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    min-height: 100px;
-  }
-
-  .kanban-card {
-    padding: 0.85rem 1rem;
-    border-radius: var(--radius-sm);
-    background: rgba(26, 31, 46, 0.6);
-    border: 1px solid var(--border);
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .kanban-card:hover {
-    border-color: var(--primary);
-    background: rgba(26, 31, 46, 0.8);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-  }
-
-  .kanban-card-title {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #fff;
-    margin-bottom: 0.35rem;
-  }
-
-  .kanban-card-meta {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-  }
-
-  /* ─── Pagination (Amplex-specific) ────────────────────────── */
-  .pagination {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    margin-top: 1.5rem;
-  }
-
-  .pagination button {
-    padding: 0.4rem 0.8rem;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--text-muted);
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-family: inherit;
-    transition: all 0.2s ease;
-  }
-
-  .pagination button:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.06);
-    color: #fff;
-  }
-
-  .pagination button:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-  }
-
-  .pagination button.active {
-    background: rgba(0, 112, 255, 0.15);
-    border-color: rgba(0, 112, 255, 0.3);
-    color: var(--primary);
-  }
-
-  /* ─── Empty State (Amplex-specific) ───────────────────────── */
-  .empty-state {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--text-muted);
-  }
-
-  .empty-state-icon {
-    font-size: 2.5rem;
-    margin-bottom: 1rem;
-    opacity: 0.5;
-  }
-
-  .empty-state-title {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #fff;
-    margin-bottom: 0.5rem;
-  }
-
-  .empty-state-text {
-    font-size: 0.875rem;
-    color: var(--text-muted);
-    margin-bottom: 1.5rem;
-  }
-
-  /* ─── Mobile ──────────────────────────────────────────────── */
+  /* ── Mobile ── */
   .mobile-menu-btn {
     display: none;
     position: fixed;
@@ -574,7 +314,6 @@
     z-index: 65;
     width: 40px;
     height: 40px;
-    border-radius: 0;
     border: none;
     border-right: 1px solid rgba(45, 56, 71, 0.5);
     background: rgba(14, 17, 28, 0.95);
@@ -618,49 +357,18 @@
   .page {
     padding: 1rem;
   }
-  .kanban-board {
-    flex-direction: column;
-    min-height: auto;
-  }
-  .kanban-column {
-    min-width: 100%;
-    max-width: 100%;
-  }
 }
 
-/* ─── Animations ──────────────────────────────────────────── */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes glassShine {
-  0% {
-    left: -100%;
-  }
-  100% {
-    left: 200%;
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
 @keyframes progressPulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.55;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
 }
