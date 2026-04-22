@@ -7,6 +7,7 @@ custom CSRF (amplex_access/amplex_csrf cookies), and request logging.
 
 import hmac
 import logging
+import re
 import time
 import uuid
 
@@ -15,6 +16,7 @@ from django.core.cache import cache
 from django.http import JsonResponse
 
 logger = logging.getLogger("amplex")
+_SLUG_PATH_RE = re.compile(r"/id/([^/]+)/")
 
 
 def _get_client_ip(request):
@@ -166,14 +168,17 @@ class RequestLoggingMiddleware:
     def __call__(self, request):
         request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex[:12])
         start = time.time()
+        slug_match = _SLUG_PATH_RE.search(request.path or "")
+        client_slug = slug_match.group(1) if slug_match else ""
 
         response = self.get_response(request)
 
         duration = round((time.time() - start) * 1000, 1)
         response["X-Request-ID"] = request_id
         logger.info(
-            "req=%s method=%s path=%s status=%d duration=%sms ip=%s",
+            "request_id=%s client_slug=%s method=%s path=%s status_code=%d latency_ms=%s ip=%s",
             request_id,
+            client_slug,
             request.method,
             request.path,
             response.status_code,

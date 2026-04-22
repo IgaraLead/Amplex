@@ -5,7 +5,7 @@ Amplex is the **CRM pipeline platform** in the IgaraLead ecosystem. It manages s
 ## Tech Stack
 
 - **Backend**: Django 5.1 + Gunicorn + PostgreSQL 16 (unified `igaralead` DB) + Redis 7 + S3/MinIO
-- **Frontend**: React 18 + Vite 5 + TypeScript 5.3 (strict) + TanStack Query 5 + Zustand 4 + DaisyUI 4 (`igara` theme)
+- **Frontend**: React 19 + Vite 8 + TypeScript 5.3 (strict) + TanStack Query 5 + Zustand 5 + Tailwind CSS 4 + DaisyUI 5 (`igara` theme)
 - **Storage**: S3 (boto3) for exports and attachments
 - **Formatting/Lint**: Black (88 cols) + Ruff (py312) + ESLint 9 flat config + Prettier
 - **Deployment**: Single full-stack Docker image (`ghcr.io/igaralead/amplex:latest`, port 8002), Python 3.12-slim + node:20-alpine build stage
@@ -20,7 +20,7 @@ ruff check api/ amplex/ --config ruff.toml       # Lint
 python -m pytest tests/ --tb=short -v            # Tests
 
 # Frontend
-cd frontend
+cd web
 npm install && npm run dev                       # Dev server (port 3003)
 npx eslint .                                     # Lint
 npx tsc --noEmit                                 # Typecheck
@@ -39,7 +39,8 @@ npx tsc --noEmit                                 # Typecheck
   - `views/` — 22 view modules: `__init__` (health), `auth`, `leads`, `pipeline`, `dashboard`, `contacts`, `interactions`, `stages`, `custom_fields`, `tags`, `sources`, `lost_reasons`, `users`, `attachments`, `export`, `config`, `permissions`, `notifications`, `orgs`, `hub_users`, `integrations`, `s2s`
   - `urls.py` — RESTful URL routing with dispatch helpers
 - **Settings** (`amplex/`): Django project config — `settings.py`, `settings_test.py`, `urls.py`, `views.py` (SPA catch-all), `wsgi.py`
-- **Frontend** (`frontend/src/`): Modular React — path alias `@/` → `src/`
+- **Frontend** (`web/src/`): React 19 + Vite 8 + Tailwind 4 + DaisyUI 5 — path alias `@/` → `src/`
+  - `app/` — `App.tsx` (shell), `routes.tsx` (rotas e lazy loading)
   - `modules/` — `auth/` (Login, OrgSelect), `dashboard/`, `pipeline/` (Kanban), `leads/` (list + detail), `contacts/`, `settings/`
   - `shared/` — `api.ts`, `store.ts` (Zustand), `branding.ts`, `layout/` (AppLayout), `ui/` (ErrorBoundary, Logo, ProductSwitcher, Toast)
 - **Cache**: Redis 7 (KEY_PREFIX="amplex") for rate limiting
@@ -85,7 +86,7 @@ Amplex is the CRM pipeline platform in the IgaraLead ecosystem. These principles
 
 - **Python**: Black (88 cols, double quotes) + Ruff (B, BLE, C4, DJ, E, F, I, N, PIE, RET, RUF, S, SIM, T20, TID, UP, W). KISS — minimal abstraction
 - **React/TS**: ESLint flat config + Prettier, functional components, hooks only
-- **Styling**: DaisyUI 4 (`igara` theme) + Tailwind utility classes only — no custom CSS, no scoped styles, no inline styles
+- **Styling**: Tailwind CSS 4 + DaisyUI 5 (`igara` theme). Layout shell (`AppLayout`), modals e filtros usam classes utilitárias; `src/index.css` concentra tema Daisy, fontes, Kanban, tabelas e utilitários de página (`.page`, `.stat-grid`, …). Formulários longos (`LeadDetail`, `Settings`) podem usar cores hex explícitas alinhadas ao tema onde o estilo é dinâmico.
 - **State**: TanStack Query for server state, Zustand for client state
 
 ## Conventions
@@ -128,7 +129,7 @@ python -m pytest tests/ --tb=short -v
 ### Frontend Verification
 
 ```bash
-cd frontend
+cd web
 npx eslint .                                     # Lint
 npx tsc --noEmit                                 # Typecheck
 ```

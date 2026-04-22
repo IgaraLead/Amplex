@@ -1,14 +1,92 @@
 """Dashboard views."""
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 from django.db.models import Sum
 from django.db.models.functions import Coalesce
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from api.auth_utils import org_admin_required, org_required
 from api.models import AmplexUser, Contact, Interaction, Lead, Source, Stage
+
+
+def _parse_iso_date(value):
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def _resolve_period(request):
+    """Resolve preset/custom period and its equivalent previous window."""
+    period = request.GET.get("period", "month")
+    today = datetime.now().date()
+
+    if period == "day":
+        start_date = today - timedelta(days=1)
+        end_date = today
+    elif period == "week":
+        start_date = today - timedelta(days=7)
+        end_date = today
+    elif period == "month":
+        start_date = today - timedelta(days=30)
+        end_date = today
+    else:
+        period = "custom"
+        start_date = _parse_iso_date(request.GET.get("start_date"))
+        end_date = _parse_iso_date(request.GET.get("end_date"))
+
+    if start_date and end_date and start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    def aware(dt):
+        if dt is None:
+            return None
+        return timezone.make_aware(dt) if timezone.is_naive(dt) else dt
+
+    start_dt = (
+        aware(datetime.combine(start_date, time.min)) if start_date else None
+    )
+    end_dt = (
+        aware(datetime.combine(end_date + timedelta(days=1), time.min))
+        if end_date
+        else None
+    )
+
+    prev_start_dt = None
+    prev_end_dt = None
+    if start_dt and end_dt:
+        window = end_dt - start_dt
+        prev_end_dt = start_dt
+        prev_start_dt = start_dt - window
+    elif start_dt and not end_dt:
+        prev_end_dt = start_dt
+        prev_start_dt = start_dt - timedelta(days=30)
+    elif end_dt and not start_dt:
+        prev_end_dt = end_dt
+        prev_start_dt = end_dt - timedelta(days=30)
+
+    return {
+        "period": period,
+        "start_date": start_date.isoformat() if start_date else None,
+        "end_date": end_date.isoformat() if end_date else None,
+        "start_dt": start_dt,
+        "end_dt": end_dt,
+        "prev_start_dt": prev_start_dt,
+        "prev_end_dt": prev_end_dt,
+    }
+
+
+def _apply_dt_range(qs, field_name, start_dt, end_dt):
+    if start_dt:
+        qs = qs.filter(**{f"{field_name}__gte": start_dt})
+    if end_dt:
+        qs = qs.filter(**{f"{field_name}__lt": end_dt})
+    return qs
 
 
 @require_http_methods(["GET"])
@@ -18,15 +96,16 @@ def dashboard(request, slug):
     org = request.amplex_org
     is_manager = user["role"] == "admin"
 
+    period = _resolve_period(request)
+
     def base_qs():
         qs = Lead.objects.filter(active=True, org=org)
         if not is_manager:
             qs = qs.filter(user_id=user["user_id"])
+        qs = _apply_dt_range(
+            qs, "created_at", period["start_dt"], period["end_dt"]
+        )
         return qs
-
-    today = datetime.now().date()
-    month_start = today.replace(day=1)
-    last_month_start = (month_start - timedelta(days=1)).replace(day=1)
 
     total_leads = base_qs().filter(type="lead").count()
     total_opps = base_qs().filter(type="opportunity").count()
@@ -39,6 +118,9 @@ def dashboard(request, slug):
     lost_qs = Lead.objects.filter(active=False, probability=0, org=org)
     if not is_manager:
         lost_qs = lost_qs.filter(user_id=user["user_id"])
+    lost_qs = _apply_dt_range(
+        lost_qs, "created_at", period["start_dt"], period["end_dt"]
+    )
     lost = lost_qs.count()
 
     total_revenue = (
@@ -51,12 +133,19 @@ def dashboard(request, slug):
         else 0
     )
 
-    new_this_month = base_qs().filter(created_at__gte=month_start).count()
-    new_last_month = (
-        base_qs()
-        .filter(created_at__gte=last_month_start, created_at__lt=month_start)
-        .count()
-    )
+    current_period_count = base_qs().count()
+    previous_period_count = 0
+    if period["prev_start_dt"] or period["prev_end_dt"]:
+        previous_qs = Lead.objects.filter(active=True, org=org)
+        if not is_manager:
+            previous_qs = previous_qs.filter(user_id=user["user_id"])
+        previous_qs = _apply_dt_range(
+            previous_qs,
+            "created_at",
+            period["prev_start_dt"],
+            period["prev_end_dt"],
+        )
+        previous_period_count = previous_qs.count()
 
     stages = []
     for stage in Stage.objects.filter(org=org).order_by("sequence"):
@@ -76,7 +165,10 @@ def dashboard(request, slug):
             }
         )
 
-    total_contacts = Contact.objects.filter(active=True, org=org).count()
+    contacts_qs = Contact.objects.filter(active=True, org=org)
+    total_contacts = _apply_dt_range(
+        contacts_qs, "created_at", period["start_dt"], period["end_dt"]
+    ).count()
 
     return JsonResponse(
         {
@@ -86,11 +178,20 @@ def dashboard(request, slug):
                 "won": won,
                 "lost": lost,
                 "total_revenue": round(total_revenue, 2),
-                "new_this_month": new_this_month,
-                "new_last_month": new_last_month,
+                # Backward compatibility fields
+                "new_this_month": current_period_count,
+                "new_last_month": previous_period_count,
+                # Explicit period-aware fields
+                "current_period_count": current_period_count,
+                "previous_period_count": previous_period_count,
             },
             "stages": stages,
             "total_contacts": total_contacts,
+            "period": {
+                "key": period["period"],
+                "start_date": period["start_date"],
+                "end_date": period["end_date"],
+            },
         }
     )
 
@@ -100,6 +201,7 @@ def dashboard(request, slug):
 def dashboard_advanced(request, slug):
     org = request.amplex_org
     today = datetime.now().date()
+    period = _resolve_period(request)
 
     crm_users = AmplexUser.objects.filter(
         memberships__org=org, is_internal=True, active=True
@@ -110,20 +212,26 @@ def dashboard_advanced(request, slug):
 
     vendor_performance = []
     for u in crm_users:
-        total = Lead.objects.filter(active=True, user=u, org=org).count()
+        user_active_qs = Lead.objects.filter(active=True, user=u, org=org)
+        user_active_qs = _apply_dt_range(
+            user_active_qs, "created_at", period["start_dt"], period["end_dt"]
+        )
+        total = user_active_qs.count()
         w = (
-            Lead.objects.filter(
-                active=True, user=u, org=org, stage_id__in=won_stage_ids
-            ).count()
+            user_active_qs.filter(stage_id__in=won_stage_ids).count()
             if won_stage_ids
             else 0
         )
-        lost = Lead.objects.filter(active=False, probability=0, user=u, org=org).count()
+        user_lost_qs = Lead.objects.filter(active=False, probability=0, user=u, org=org)
+        user_lost_qs = _apply_dt_range(
+            user_lost_qs, "created_at", period["start_dt"], period["end_dt"]
+        )
+        lost = user_lost_qs.count()
         rev = (
             float(
-                Lead.objects.filter(
-                    active=True, user=u, org=org, stage_id__in=won_stage_ids
-                ).aggregate(s=Coalesce(Sum("expected_revenue"), 0.0))["s"]
+                user_active_qs.filter(stage_id__in=won_stage_ids).aggregate(
+                    s=Coalesce(Sum("expected_revenue"), 0.0)
+                )["s"]
             )
             if won_stage_ids
             else 0
@@ -143,41 +251,69 @@ def dashboard_advanced(request, slug):
     sources = Source.objects.filter(org=org)
     origin_breakdown = []
     for src in sources:
-        count = Lead.objects.filter(active=True, source=src, org=org).count()
+        src_qs = Lead.objects.filter(active=True, source=src, org=org)
+        src_qs = _apply_dt_range(
+            src_qs, "created_at", period["start_dt"], period["end_dt"]
+        )
+        count = src_qs.count()
         if count > 0:
             origin_breakdown.append(
                 {"source_id": src.id, "name": src.name, "count": count}
             )
-    no_source = Lead.objects.filter(active=True, source__isnull=True, org=org).count()
+    no_source_qs = Lead.objects.filter(active=True, source__isnull=True, org=org)
+    no_source_qs = _apply_dt_range(
+        no_source_qs, "created_at", period["start_dt"], period["end_dt"]
+    )
+    no_source = no_source_qs.count()
     if no_source > 0:
         origin_breakdown.append(
             {"source_id": None, "name": "Sem origem", "count": no_source}
         )
 
     leads_over_time = []
-    for i in range(5, -1, -1):
-        m_start = (today.replace(day=1) - timedelta(days=30 * i)).replace(day=1)
-        m_end = (
-            (m_start.replace(day=28) + timedelta(days=4)).replace(day=1)
-            if i > 0
-            else today + timedelta(days=1)
-        )
+    timeline_start = period["start_dt"] or timezone.make_aware(
+        datetime.combine((today - timedelta(days=180)).replace(day=1), time.min)
+    )
+    timeline_end = period["end_dt"] or timezone.make_aware(
+        datetime.combine(today + timedelta(days=1), time.min)
+    )
+    window_days = max((timeline_end - timeline_start).days, 1)
+
+    if window_days <= 14:
+        step_days = 1
+        label_fmt = "%d/%m"
+    elif window_days <= 90:
+        step_days = 7
+        label_fmt = "%d/%m"
+    else:
+        step_days = 30
+        label_fmt = "%b/%Y"
+
+    cursor = timeline_start
+    while cursor < timeline_end:
+        bucket_end = min(cursor + timedelta(days=step_days), timeline_end)
         count = Lead.objects.filter(
-            org=org, created_at__gte=m_start, created_at__lt=m_end
+            org=org, created_at__gte=cursor, created_at__lt=bucket_end
         ).count()
         leads_over_time.append(
             {
-                "month": m_start.strftime("%Y-%m"),
-                "label": m_start.strftime("%b/%Y"),
+                "month": cursor.strftime("%Y-%m-%d"),
+                "label": cursor.strftime(label_fmt),
                 "count": count,
             }
         )
+        cursor = bucket_end
 
     return JsonResponse(
         {
             "vendor_performance": vendor_performance,
             "origin_breakdown": origin_breakdown,
             "leads_over_time": leads_over_time,
+            "period": {
+                "key": period["period"],
+                "start_date": period["start_date"],
+                "end_date": period["end_date"],
+            },
         }
     )
 
@@ -189,12 +325,14 @@ def next_contacts(request, slug):
     org = request.amplex_org
     limit = min(int(request.GET.get("limit", 10)), 50)
 
+    period = _resolve_period(request)
     qs = Lead.objects.filter(active=True, org=org).select_related("stage", "contact")
+    qs = _apply_dt_range(qs, "created_at", period["start_dt"], period["end_dt"])
     if user["role"] != "admin":
         qs = qs.filter(user_id=user["user_id"])
 
     leads = list(qs.order_by("updated_at")[:limit])
-    now = datetime.now()
+    now = timezone.now()
     items = []
     for lead in leads:
         last_interaction = (

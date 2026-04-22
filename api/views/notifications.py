@@ -3,7 +3,6 @@
 from datetime import date
 
 from django.http import JsonResponse
-from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from api.auth_utils import org_required
@@ -19,18 +18,16 @@ def list_notifications(request, slug):
     activities = (
         Activity.objects.filter(
             lead__org=org,
-            assigned_to_id=user["user_id"],
-            completed=False,
-            dismissed=False,
+            user_id=user["user_id"],
         )
         .select_related("lead")
-        .order_by("due_date")
+        .order_by("date_deadline", "id")
     )
 
     today = date.today()
     items = []
     for a in activities:
-        due = a.due_date
+        due = a.date_deadline
         state = "planned"
         if due and due < today:
             state = "overdue"
@@ -42,14 +39,23 @@ def list_notifications(request, slug):
                 "id": a.id,
                 "lead_id": a.lead_id,
                 "lead_name": a.lead.name if a.lead else "",
-                "type": a.type,
-                "description": a.description or "",
-                "due_date": due.isoformat() if due else None,
+                "summary": a.summary or "",
+                "note": a.note or "",
+                "date_deadline": due.isoformat() if due else None,
                 "state": state,
+                "activity_type": a.activity_type or "",
+                "user_name": user.get("name", ""),
             }
         )
 
-    return JsonResponse({"items": items})
+    return JsonResponse(
+        {
+            "items": items,
+            "badge_count": len(items),
+            "overdue_count": sum(1 for i in items if i["state"] == "overdue"),
+            "today_count": sum(1 for i in items if i["state"] == "today"),
+        }
+    )
 
 
 @require_http_methods(["POST"])
@@ -61,21 +67,19 @@ def complete_notification(request, slug, activity_id):
     activity = Activity.objects.filter(
         id=activity_id,
         lead__org=org,
-        assigned_to_id=user["user_id"],
+        user_id=user["user_id"],
     ).first()
     if not activity:
         return JsonResponse({"detail": "Not found"}, status=404)
 
-    activity.completed = True
-    activity.completed_at = timezone.now()
-    activity.save(update_fields=["completed", "completed_at"])
-
     Interaction.objects.create(
         lead=activity.lead,
-        type="activity_completed",
-        notes=f"Completed: {activity.type} — {activity.description or ''}",
+        interaction_type="note",
+        body=f"<p>Atividade concluída: {activity.summary or activity.activity_type}</p>",
+        preview=f"Atividade concluída: {activity.summary or activity.activity_type}",
         author_id=user["user_id"],
     )
+    activity.delete()
 
     return JsonResponse({"completed": True})
 
@@ -89,11 +93,10 @@ def dismiss_notification(request, slug, activity_id):
     activity = Activity.objects.filter(
         id=activity_id,
         lead__org=org,
-        assigned_to_id=user["user_id"],
+        user_id=user["user_id"],
     ).first()
     if not activity:
         return JsonResponse({"detail": "Not found"}, status=404)
 
-    activity.dismissed = True
-    activity.save(update_fields=["dismissed"])
+    activity.delete()
     return JsonResponse({"dismissed": True})

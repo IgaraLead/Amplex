@@ -40,15 +40,15 @@ jobs:
           node-version: "20"
 
       - name: Install frontend dependencies
-        working-directory: frontend
+        working-directory: web
         run: npm install
 
       - name: Type-check frontend
-        working-directory: frontend
+        working-directory: web
         run: npx tsc --noEmit
 
       - name: Lint frontend
-        working-directory: frontend
+        working-directory: web
         run: npx eslint .
 
   build:

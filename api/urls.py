@@ -292,6 +292,11 @@ urlpatterns = [
         name="integrations-nexus",
     ),
     path(
+        "id/<slug:slug>/crm/integrations/open-conversation",
+        integrations.open_nexus_conversation,
+        name="integrations-open-conversation",
+    ),
+    path(
         "id/<slug:slug>/crm/integrations/enrich-cnpj",
         integrations.enrich_cnpj,
         name="integrations-enrich",

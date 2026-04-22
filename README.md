@@ -5,7 +5,7 @@ CRM do ecossistema IgaraLead. Operacionaliza pipeline de vendas, oportunidades, 
 ## Stack
 
 - **Backend:** Django 5.1 + Gunicorn + PostgreSQL 16 + Redis 7
-- **Frontend:** React 18 + Vite 5 + TypeScript 5.3 + DaisyUI 4
+- **Frontend:** React 19 + Vite 8 + TypeScript 5.3 + Tailwind CSS 4 + DaisyUI 5
 - **Storage:** S3/MinIO (boto3)
 
 ## Funcionalidades
@@ -29,7 +29,7 @@ pip install -r requirements.txt
 python manage.py runserver
 
 # Frontend
-cd frontend
+cd web
 npm install
 npm run dev
 ```

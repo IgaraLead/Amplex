@@ -181,9 +181,27 @@ HUB_API_KEY = os.getenv("HUB_API_KEY", "")
 
 # Nexus integration
 NEXUS_URL = os.getenv("NEXUS_URL", _product_url("nexus", "http://localhost:3000"))
+NEXUS_API_KEY = os.getenv("NEXUS_API_KEY", HUB_API_KEY)
 
 # Entity integration
 ENTITY_URL = os.getenv("ENTITY_URL", _product_url("entity", "http://localhost:3002"))
+ENTITY_API_KEY = os.getenv("ENTITY_API_KEY", HUB_API_KEY)
+
+if ENVIRONMENT == "production":
+    _integration_required = {
+        "HUB_URL": HUB_URL,
+        "HUB_API_KEY": HUB_API_KEY,
+        "NEXUS_URL": NEXUS_URL,
+        "NEXUS_API_KEY": NEXUS_API_KEY,
+        "ENTITY_URL": ENTITY_URL,
+        "ENTITY_API_KEY": ENTITY_API_KEY,
+    }
+    _missing_integrations = [k for k, v in _integration_required.items() if not v]
+    if _missing_integrations:
+        raise RuntimeError(
+            "Production requires integration env vars: "
+            + ", ".join(_missing_integrations)
+        )
 
 # Storage / MinIO
 STORAGE_ENDPOINT = os.getenv("STORAGE_ENDPOINT", "http://minio:9000")

@@ -22,7 +22,7 @@ python -m pytest tests/ --tb=short -v          # Tests
 
 ## Frontend (TypeScript)
 
-Run from `frontend/`:
+Run from `web/`:
 
 ```bash
 npx eslint .                           # Lint

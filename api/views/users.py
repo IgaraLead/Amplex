@@ -23,7 +23,7 @@ def list_users(request, slug):
                     "name": m.user.name,
                     "email": m.user.email,
                     "role": m.role,
-                    "avatar_url": m.user.avatar_url or "",
+                    "avatar_url": "",
                 }
                 for m in members
                 if m.user.active

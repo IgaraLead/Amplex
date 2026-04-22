@@ -47,7 +47,7 @@ def main():
             ["npx", "--no-install", "eslint", path],
             capture_output=True,
             text=True,
-            cwd=os.path.join(repo, "frontend"),
+            cwd=os.path.join(repo, "web"),
         )
         if r.returncode != 0:
             errors = (r.stdout + r.stderr).strip()

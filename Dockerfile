@@ -2,9 +2,9 @@
 FROM node:20-alpine AS frontend-build
 
 WORKDIR /build
-COPY frontend/package.json frontend/package-lock.json* ./
+COPY web/package.json web/package-lock.json* ./
 RUN npm install
-COPY frontend/ .
+COPY web/ .
 RUN npm run build
 
 # ── Stage 2: Production runtime ──────────────────────────────────────────────
