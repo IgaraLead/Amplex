@@ -138,18 +138,62 @@ function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 }
 
-const INTERACTION_TYPES: Array<{ value: string; label: string; icon: ReactNode; color: string }> = [
-  { value: 'phone', label: 'Ligação', icon: <Phone size={14} />, color: '#0085ff' },
-  { value: 'email', label: 'E-mail', icon: <Mail size={14} />, color: '#f59e0b' },
+const INTERACTION_TYPES: Array<{
+  value: string;
+  label: string;
+  icon: ReactNode;
+  accentClass: string;
+  badgeClass: string;
+  borderClass: string;
+}> = [
+  {
+    value: 'phone',
+    label: 'Ligação',
+    icon: <Phone size={14} />,
+    accentClass: 'text-primary',
+    badgeClass: 'border-primary/30 bg-primary/15 text-primary',
+    borderClass: 'border-l-primary',
+  },
+  {
+    value: 'email',
+    label: 'E-mail',
+    icon: <Mail size={14} />,
+    accentClass: 'text-warning',
+    badgeClass: 'border-warning/30 bg-warning/15 text-warning',
+    borderClass: 'border-l-warning',
+  },
   {
     value: 'whatsapp',
     label: 'WhatsApp',
     icon: <MessageCircle size={14} />,
-    color: '#22c55e',
+    accentClass: 'text-success',
+    badgeClass: 'border-success/30 bg-success/15 text-success',
+    borderClass: 'border-l-success',
   },
-  { value: 'meeting', label: 'Reunião', icon: <Handshake size={14} />, color: '#0085ff' },
-  { value: 'visit', label: 'Visita', icon: <Building size={14} />, color: '#9b59b6' },
-  { value: 'note', label: 'Nota', icon: <FileText size={14} />, color: '#a6acbb' },
+  {
+    value: 'meeting',
+    label: 'Reunião',
+    icon: <Handshake size={14} />,
+    accentClass: 'text-info',
+    badgeClass: 'border-info/30 bg-info/15 text-info',
+    borderClass: 'border-l-info',
+  },
+  {
+    value: 'visit',
+    label: 'Visita',
+    icon: <Building size={14} />,
+    accentClass: 'text-secondary',
+    badgeClass: 'border-secondary/30 bg-secondary/15 text-secondary',
+    borderClass: 'border-l-secondary',
+  },
+  {
+    value: 'note',
+    label: 'Nota',
+    icon: <FileText size={14} />,
+    accentClass: 'text-base-content/70',
+    badgeClass: 'border-base-300 bg-base-content/10 text-base-content/70',
+    borderClass: 'border-l-base-content/30',
+  },
 ];
 
 export default function LeadDetail() {
@@ -771,14 +815,12 @@ export default function LeadDetail() {
                   return (
                     <div
                       key={msg.id}
-                      className="flex gap-3 rounded-lg bg-white/[0.02] p-3"
-                      style={{ borderLeft: `3px solid ${typeInfo.color}` }}
+                      className={`flex gap-3 rounded-lg border-l-[3px] bg-white/[0.02] p-3 ${typeInfo.borderClass}`}
                     >
                       <div className="min-w-0 flex-1">
                         <div className="mb-1 flex items-center justify-between">
                           <span
-                            className="flex items-center gap-1 text-xs font-semibold"
-                            style={{ color: typeInfo.color }}
+                            className={`flex items-center gap-1 text-xs font-semibold ${typeInfo.accentClass}`}
                           >
                             {typeInfo.icon} {typeInfo.label}
                           </span>
@@ -1276,7 +1318,14 @@ function InteractionTypeButton({
   active,
   onClick,
 }: {
-  type: { value: string; label: string; icon: ReactNode; color: string };
+  type: {
+    value: string;
+    label: string;
+    icon: ReactNode;
+    accentClass: string;
+    badgeClass: string;
+    borderClass: string;
+  };
   active: boolean;
   onClick: () => void;
 }) {
@@ -1286,17 +1335,8 @@ function InteractionTypeButton({
       onClick={onClick}
       className={[
         'flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs',
-        active ? '' : 'border-base-300 text-base-content/55',
+        active ? type.badgeClass : 'border-base-300 text-base-content/55',
       ].join(' ')}
-      style={
-        active
-          ? {
-              borderColor: type.color,
-              background: `${type.color}20`,
-              color: type.color,
-            }
-          : undefined
-      }
     >
       {type.icon} {type.label}
     </button>

@@ -9,7 +9,7 @@ interface Product {
   description: string;
   url: string;
   icon: ReactNode;
-  color: string;
+  colorClass: string;
 }
 
 const PRODUCTS: Product[] = [
@@ -19,7 +19,7 @@ const PRODUCTS: Product[] = [
     description: 'Painel Central',
     url: '',
     icon: <Home size={16} />,
-    color: '#0070ff',
+    colorClass: 'bg-primary/10 text-primary',
   },
   {
     key: 'amplex',
@@ -27,7 +27,7 @@ const PRODUCTS: Product[] = [
     description: 'CRM',
     url: '',
     icon: <BarChart3 size={16} />,
-    color: '#10b981',
+    colorClass: 'bg-success/10 text-success',
   },
   {
     key: 'nexus',
@@ -35,7 +35,7 @@ const PRODUCTS: Product[] = [
     description: 'Atendimento',
     url: '',
     icon: <MessageSquare size={16} />,
-    color: '#8b5cf6',
+    colorClass: 'bg-secondary/10 text-secondary',
   },
   {
     key: 'entity',
@@ -43,7 +43,7 @@ const PRODUCTS: Product[] = [
     description: 'Dados CNPJ',
     url: '',
     icon: <Search size={16} />,
-    color: '#f59e0b',
+    colorClass: 'bg-warning/10 text-warning',
   },
 ];
 
@@ -118,8 +118,7 @@ export default function ProductSwitcher() {
                 ].join(' ')}
               >
                 <span
-                  className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg"
-                  style={{ background: `${p.color}18`, color: p.color }}
+                  className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-lg ${p.colorClass}`}
                 >
                   {p.icon}
                 </span>

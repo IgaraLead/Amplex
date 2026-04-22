@@ -285,9 +285,12 @@ def require_api_key(view_func):
         import hmac as _hmac
 
         api_key = request.headers.get("X-Api-Key", "")
-        expected = settings.HUB_API_KEY
-        if not expected or not _hmac.compare_digest(api_key, expected):
+        expected_keys = getattr(settings, "INTERNAL_API_KEYS", [])
+        if not expected_keys or not api_key:
             return JsonResponse({"detail": "API key inválida"}, status=401)
-        return view_func(request, *args, **kwargs)
+        for expected in expected_keys:
+            if _hmac.compare_digest(api_key, expected):
+                return view_func(request, *args, **kwargs)
+        return JsonResponse({"detail": "API key inválida"}, status=401)
 
     return wrapper

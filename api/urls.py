@@ -53,6 +53,7 @@ urlpatterns = [
     path("auth/logout", auth.logout, name="auth-logout"),
     # Config
     path("config", config.get_config, name="config"),
+    path("id/<slug:slug>/crm/config", config.get_scoped_config, name="config-scoped"),
     # Orgs (no org context)
     path(
         "orgs",

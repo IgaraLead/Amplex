@@ -283,6 +283,24 @@ body {
   pointer-events: none;
 }
 
+.btn.btn-primary {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(90deg, #9333ea 0%, #0085ff 100%);
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(0, 133, 255, 0.25);
+  transition: all 0.2s ease;
+}
+
+.btn.btn-primary:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 6px 24px rgba(0, 133, 255, 0.35);
+}
+
+.btn.btn-primary:disabled {
+  opacity: 0.6;
+  box-shadow: none;
+}
+
 /* ── Progress shimmer ── */
 .progress-shimmer {
   position: relative;

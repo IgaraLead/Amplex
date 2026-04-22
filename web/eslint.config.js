@@ -21,6 +21,25 @@ export default tseslint.config(
     rules: {
       ...reactHooks.configs.recommended.rules,
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'JSXAttribute[name.name="style"]',
+          message: 'Inline style is blocked. Use IgaraUI tokens and utility classes instead.',
+        },
+      ],
+    },
+  },
+  {
+    files: [
+      'src/modules/dashboard/Dashboard.tsx',
+      'src/modules/leads/LeadDetail.tsx',
+      'src/modules/settings/Settings.tsx',
+      'src/shared/layout/AppLayout.tsx',
+      'src/shared/ui/Logo.tsx',
+    ],
+    rules: {
+      'no-restricted-syntax': 'off',
     },
   },
   prettier

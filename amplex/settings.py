@@ -186,6 +186,9 @@ NEXUS_API_KEY = os.getenv("NEXUS_API_KEY", HUB_API_KEY)
 # Entity integration
 ENTITY_URL = os.getenv("ENTITY_URL", _product_url("entity", "http://localhost:3002"))
 ENTITY_API_KEY = os.getenv("ENTITY_API_KEY", HUB_API_KEY)
+INTERNAL_API_KEYS = [
+    v for v in (HUB_API_KEY, NEXUS_API_KEY, ENTITY_API_KEY) if v
+]
 
 if ENVIRONMENT == "production":
     _integration_required = {
