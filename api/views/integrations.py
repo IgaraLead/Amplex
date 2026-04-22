@@ -19,7 +19,7 @@ def _normalize_integrations_payload(payload):
     data = payload if isinstance(payload, dict) else {}
     active = data.get("active_products") or data.get("products") or {}
     if isinstance(active, list):
-        active = {name: True for name in active}
+        active = dict.fromkeys(active, True)
 
     actions = []
     if active.get("nexus"):
@@ -30,7 +30,7 @@ def _normalize_integrations_payload(payload):
                 "description": "Cria/abre uma conversa para o lead no Nexus.",
                 "target": "nexus",
                 "target_url": getattr(settings, "NEXUS_URL", ""),
-                "endpoint": "/igaralead/api/conversations/find_or_create",
+                "endpoint": "/id/{slug}/igaralead/api/conversations/find_or_create",
                 "method": "POST",
             }
         )
@@ -88,9 +88,13 @@ def open_nexus_conversation(request, slug):
     lead_id = body.get("lead_id")
     message = body.get("message", "")
 
-    contact = Contact.objects.filter(id=contact_id, org=org).first() if contact_id else None
+    contact = (
+        Contact.objects.filter(id=contact_id, org=org).first() if contact_id else None
+    )
     if not contact and lead_id:
-        lead = Lead.objects.filter(id=lead_id, org=org).select_related("contact").first()
+        lead = (
+            Lead.objects.filter(id=lead_id, org=org).select_related("contact").first()
+        )
         contact = lead.contact if lead else None
 
     if not contact:
@@ -114,7 +118,7 @@ def open_nexus_conversation(request, slug):
 
     try:
         resp = httpx.post(
-            f"{nexus_url}/igaralead/api/conversations/find_or_create",
+            f"{nexus_url}/id/{slug}/igaralead/api/conversations/find_or_create",
             json=payload,
             headers={"X-Api-Key": nexus_api_key},
             timeout=10,
@@ -128,7 +132,7 @@ def open_nexus_conversation(request, slug):
 
         if message and conv_data.get("id"):
             httpx.post(
-                f"{nexus_url}/igaralead/api/messages",
+                f"{nexus_url}/id/{slug}/igaralead/api/messages",
                 json={
                     "conversation_id": conv_data["id"],
                     "content": message,
@@ -154,7 +158,9 @@ def enrich_cnpj(request, slug):
     lead_id = body.get("lead_id")
     cnpj = (body.get("cnpj", "") or "").strip()
     if not cnpj and lead_id:
-        lead = Lead.objects.filter(id=lead_id, org=org).select_related("contact").first()
+        lead = (
+            Lead.objects.filter(id=lead_id, org=org).select_related("contact").first()
+        )
         if lead and lead.contact and lead.contact.vat:
             cnpj = lead.contact.vat
 

@@ -42,7 +42,7 @@ export default function Login() {
         <div className="text-center">
           <Logo size={56} className="mx-auto text-base-content" />
           <h1 className="mt-6 text-center">
-            <span className="inline-block text-3xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-[#9333ea] to-[#0085ff]">
+            <span className="inline-block text-3xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-secondary to-primary">
               Amplex
             </span>
           </h1>

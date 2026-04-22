@@ -102,7 +102,7 @@ Amplex is the CRM pipeline platform in the IgaraLead ecosystem. These principles
 ## Ecosystem Integration
 
 - **Hub**: shared DB for org/user/subscription data, metrics pull via `X-Api-Key`
-- **Nexus**: `POST /igaralead/api/conversations/find_or_create` and `POST /igaralead/api/messages` for cross-product messaging
+- **Nexus**: `POST /id/{slug}/igaralead/api/conversations/find_or_create` and `POST /id/{slug}/igaralead/api/messages` for cross-product messaging
 - **Entity**: enriched company data lookup for pipeline contacts
 - **Hub → Amplex**: `GET /amplex/metrics` — metrics for Hub dashboard
 

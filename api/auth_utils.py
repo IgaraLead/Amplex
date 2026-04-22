@@ -285,7 +285,12 @@ def require_api_key(view_func):
         import hmac as _hmac
 
         api_key = request.headers.get("X-Api-Key", "")
-        expected_keys = getattr(settings, "INTERNAL_API_KEYS", [])
+        expected_keys = list(getattr(settings, "INTERNAL_API_KEYS", []) or [])
+        # Keep tests and runtime flexible if keys are patched dynamically.
+        for key_name in ("HUB_API_KEY", "NEXUS_API_KEY", "ENTITY_API_KEY"):
+            value = getattr(settings, key_name, "")
+            if value and value not in expected_keys:
+                expected_keys.append(value)
         if not expected_keys or not api_key:
             return JsonResponse({"detail": "API key inválida"}, status=401)
         for expected in expected_keys:

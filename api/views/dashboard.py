@@ -48,9 +48,7 @@ def _resolve_period(request):
             return None
         return timezone.make_aware(dt) if timezone.is_naive(dt) else dt
 
-    start_dt = (
-        aware(datetime.combine(start_date, time.min)) if start_date else None
-    )
+    start_dt = aware(datetime.combine(start_date, time.min)) if start_date else None
     end_dt = (
         aware(datetime.combine(end_date + timedelta(days=1), time.min))
         if end_date
@@ -102,10 +100,7 @@ def dashboard(request, slug):
         qs = Lead.objects.filter(active=True, org=org)
         if not is_manager:
             qs = qs.filter(user_id=user["user_id"])
-        qs = _apply_dt_range(
-            qs, "created_at", period["start_dt"], period["end_dt"]
-        )
-        return qs
+        return _apply_dt_range(qs, "created_at", period["start_dt"], period["end_dt"])
 
     total_leads = base_qs().filter(type="lead").count()
     total_opps = base_qs().filter(type="opportunity").count()

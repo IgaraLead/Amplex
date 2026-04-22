@@ -14,7 +14,7 @@
 - Sintomas: erro em `/crm/integrations/open-conversation`.
 - Ação imediata:
   - Validar `NEXUS_URL` e `NEXUS_API_KEY`.
-  - Checar status de `POST /igaralead/api/conversations/find_or_create`.
+  - Checar status de `POST /id/{slug}/igaralead/api/conversations/find_or_create`.
 - Mitigação:
   - Continuar gestão de oportunidades no Amplex.
   - Exibir orientação de retry no frontend.

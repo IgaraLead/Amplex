@@ -3,8 +3,7 @@
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
-from api.auth_utils import get_org_context
-from api.auth_utils import login_required
+from api.auth_utils import get_org_context, login_required
 from api.ecosystem import product_url
 
 
