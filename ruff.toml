@@ -1,7 +1,45 @@
 target-version = "py312"
+line-length = 88
 
 [lint]
-select = ["E", "F", "I", "W"]
+select = [
+    "B",          # flake8-bugbear
+    "BLE",        # flake8-blind-except
+    "C4",         # flake8-comprehensions
+    "DJ",         # flake8-django
+    "E",          # pycodestyle Error
+    "F",          # Pyflakes
+    "I",          # isort
+    "N",          # pep8-naming
+    "PIE",        # flake8-pie
+    "RET",        # flake8-return
+    "RUF",        # Ruff-specific rules
+    "S",          # flake8-bandit (security)
+    "SIM",        # flake8-simplify
+    "T20",        # flake8-print
+    "TID",        # flake8-tidy-imports
+    "UP",         # pyupgrade
+    "W",          # pycodestyle Warning
+]
+ignore = [
+    "E501",       # line-too-long (handled by Black)
+    "RUF012",     # mutable-class-default (Django models)
+    "S101",       # assert (used in tests)
+    "S105",       # hardcoded-password-string (false positives in config)
+    "DJ001",      # null=True on string fields (needed for Hub shared models)
+    "DJ008",      # model __str__ (shared managed=False models don't need it)
+    "TID252",     # relative imports (standard Django app pattern)
+]
+
+[lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+"**/tests/**" = ["S101", "S106"]
+"**/migrations/**" = ["E501", "N999"]
 
 [lint.isort]
 known-first-party = ["app"]
+known-third-party = ["django"]
+
+[format]
+quote-style = "double"
+indent-style = "space"

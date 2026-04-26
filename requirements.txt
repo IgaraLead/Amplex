@@ -1,0 +1,13 @@
+django==5.1.15
+gunicorn==23.0.0
+whitenoise==6.8.2
+django-cors-headers==4.6.0
+psycopg2-binary==2.9.10
+httpx==0.28.1
+python-jose[cryptography]==3.5.0
+boto3==1.35.99
+openpyxl==3.1.5
+reportlab==4.2.5
+python-dotenv==1.2.2
+redis==5.2.1
+bcrypt==4.2.1

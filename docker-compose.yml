@@ -1,57 +1,79 @@
 # ============================================================
-#  Amplex CRM – Docker Compose
+#  Amplex – Docker Compose (Dev)
 # ============================================================
-#  Uso:
-#    cp .env.example .env   # ajustar variáveis
+#  Conecta ao Infra (igaralead_public) para postgres + redis.
+#  Inicie o Infra e Hub antes:
+#    cd ../Infra && docker compose -f docker-compose.core.yml up -d
+#    cd ../Hub   && docker compose up -d
+#
+#  Uso inicial:
 #    docker compose up -d --build
+#  Uso diário (hot reload, sem rebuild):
+#    docker compose up -d
 # ============================================================
 
 services:
-
-  # ── Banco de Dados ──
-  db:
-    image: postgres:16-alpine
+  amplex-backend:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${AMPLEX_DB_NAME:-amplex}
-      POSTGRES_USER: ${AMPLEX_DB_USER:-amplex}
-      POSTGRES_PASSWORD: ${AMPLEX_DB_PASSWORD:-amplex}
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
     ports:
-      - "${AMPLEX_DB_PORT:-5435}:5432"
-    volumes:
-      - amplex_pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AMPLEX_DB_USER:-amplex}"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  # ── Backend (FastAPI) ──
-  backend:
-    build: ./backend
-    restart: unless-stopped
-    ports:
-      - "${AMPLEX_PORT:-8000}:8000"
+      - "8002:8000"
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
-      AMPLEX_DATABASE_URL: postgresql://${AMPLEX_DB_USER:-amplex}:${AMPLEX_DB_PASSWORD:-amplex}@db:5432/${AMPLEX_DB_NAME:-amplex}
+      # Database (Infra postgres — unified igaralead DB)
+      POSTGRES_HOST: postgres
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DATABASE: igaralead
+      # Redis (Infra redis)
+      REDIS_URL: redis://:redis@redis:6379/0
+      # Hub integration (server-to-server via Docker network)
+      HUB_URL: http://hub-backend:8000
+      HUB_API_KEY: dev-hub-api-key
+      # CORS (frontend dev server)
+      AMPLEX_CORS_ORIGINS: http://localhost:3003
+      FRONTEND_URL: http://localhost:3003
     volumes:
-      - ./backend/app:/opt/amplex/app
-      - amplex_files:/var/lib/amplex/files
-    depends_on:
-      db:
-        condition: service_healthy
+      - ./api:/app/api
+      - ./amplex:/app/amplex
+      - ./manage.py:/app/manage.py
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/amplex/api/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - igaralead_public
 
-  # ── Frontend (React) ──
-  frontend:
-    build: ./frontend
-    restart: unless-stopped
+  amplex-frontend:
+    image: node:20-alpine
+    working_dir: /app
+    command: sh -c "if [ ! -d node_modules ] || [ -z \"$(ls -A node_modules 2>/dev/null)\" ]; then npm install; fi && npm run dev -- --host 0.0.0.0"
+    volumes:
+      - ./web:/app
+      - amplex_web_node_modules:/app/node_modules
     ports:
-      - "${AMPLEX_FRONTEND_PORT:-3003}:3003"
+      - "3003:3003"
+    environment:
+      API_URL: http://amplex-backend:8000
+      CHOKIDAR_USEPOLLING: "true"
     depends_on:
-      - backend
+      - amplex-backend
+    networks:
+      - igaralead_public
 
 volumes:
-  amplex_pgdata:
-  amplex_files:
+  amplex_web_node_modules:
+
+networks:
+  igaralead_public:
+    external: true

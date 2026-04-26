@@ -19,6 +19,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+stack.env
 
 # ========================
 # Python
@@ -49,7 +50,7 @@ pip-log.txt
 # Node / Frontend
 # ========================
 node_modules/
-frontend/dist/
+web/dist/
 *.tsbuildinfo
 
 # ========================
@@ -71,3 +72,4 @@ htmlcov/
 .coverage
 .coverage.*
 coverage/
+*.db

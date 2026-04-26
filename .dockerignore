@@ -1,0 +1,33 @@
+.git
+.github
+.gitignore
+.env
+.env.*
+stack.env
+.DS_Store
+.ruff_cache
+.pytest_cache
+.mypy_cache
+__pycache__
+*.pyc
+
+# Frontend (built in Docker stage)
+web/node_modules
+web/dist
+
+# Dev/test artifacts
+*.db
+tests/
+conftest.py
+pyproject.toml
+htmlcov/
+.coverage
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Docs
+README.md
+AGENTS.md
