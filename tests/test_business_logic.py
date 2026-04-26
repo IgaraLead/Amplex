@@ -207,7 +207,10 @@ class TestEcosystemContracts:
         def fake_post(*args, **kwargs):
             return SimpleNamespace(
                 status_code=200,
-                json=lambda: {"id": 22, "conversation_url": "https://nexus/conversations/22"},
+                json=lambda: {
+                    "id": 22,
+                    "conversation_url": "https://nexus/conversations/22",
+                },
             )
 
         monkeypatch.setattr("api.views.integrations.httpx.post", fake_post)
