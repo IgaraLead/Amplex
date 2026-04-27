@@ -10,6 +10,7 @@ import logging
 import secrets
 
 from django.conf import settings
+from django.db import IntegrityError
 from django.http import JsonResponse
 from django.utils import timezone
 
@@ -171,19 +172,22 @@ def _sync_memberships_from_db(user, shared_user):
         if not (shared_org.active_products or {}).get("amplex"):
             continue
 
-        org = AmplexOrganization.objects.filter(hub_org_id=str(shared_org.id)).first()
-        if not org:
-            org = AmplexOrganization.objects.create(
-                name=shared_org.name or shared_org.slug,
-                hub_org_id=str(shared_org.id),
-                slug=shared_org.slug,
-            )
-        elif not org.slug:
+        org, _ = AmplexOrganization.objects.get_or_create(
+            hub_org_id=str(shared_org.id),
+            defaults={
+                "name": shared_org.name or shared_org.slug,
+                "slug": shared_org.slug,
+            },
+        )
+        if not org.slug:
             org.slug = shared_org.slug
             org.save(update_fields=["slug"])
 
-        if not AmplexOrgMember.objects.filter(org=org, user=user).exists():
-            AmplexOrgMember.objects.create(org=org, user=user)
+        try:
+            AmplexOrgMember.objects.get_or_create(org=org, user=user)
+        except IntegrityError:
+            # Concurrent /auth/me requests can attempt this insert at the same time.
+            continue
 
 
 def get_org_context(request, slug):
