@@ -1,7 +1,8 @@
 """Django ORM models for Amplex CRM.
 
-Amplex-owned tables use db_table="amplex_*" to coexist in the shared
-igaralead database. Hub shared tables use managed=False.
+Amplex-owned tables use the ``amplex_*`` prefix. Hub mirror tables use
+``managed = False`` for optional shared-Postgres deployments; production may use
+a dedicated ``amplex_app`` database (see Infra init scripts).
 """
 
 from django.db import models

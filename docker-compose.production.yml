@@ -24,7 +24,7 @@ services:
         max-size: "20m"
         max-file: "5"
     ports:
-      - "8002:8000"
+      - "127.0.0.1:8002:8000"
     env_file:
       - path: stack.env
         required: false
