@@ -12,9 +12,14 @@ Covers:
 - XSS prevention
 """
 
+import asyncio
 import json
 
 import pytest
+from channels.testing import WebsocketCommunicator
+
+from amplex.asgi import application
+from api.access_tokens import create_access_token
 
 pytestmark = pytest.mark.django_db
 
@@ -275,3 +280,68 @@ class TestTenantIsolation:
                 leads = data if isinstance(data, list) else data.get("results", [])
                 names = [lead.get("name") for lead in leads]
                 assert "Secret Lead" not in names
+
+
+class TestOrgWebsocketRealtime:
+    """Org-scoped WebSocket: JWT cookie + membership, no cross-tenant join."""
+
+    def test_ws_rejects_without_auth_cookie(self, db):
+        async def run():
+            comm = WebsocketCommunicator(application, "/amplex/ws/org/some-slug/")
+            connected, _ = await comm.connect()
+            assert connected is False
+            await comm.disconnect()
+
+        asyncio.run(run())
+
+    def test_ws_rejects_wrong_org_membership(self, db):
+        from tests.conftest import make_member, make_org, make_user
+
+        org_a = make_org(slug="ws-org-a")
+        org_b = make_org(slug="ws-org-b")
+        user = make_user(email="ws@test.com")
+        make_member(org=org_a, user=user, role="member")
+        token = create_access_token(str(user.id), auth_kind="amplex_local")
+        headers = [(b"cookie", f"amplex_access={token}".encode())]
+
+        async def run():
+            comm = WebsocketCommunicator(
+                application, f"/amplex/ws/org/{org_b.slug}/", headers=headers
+            )
+            connected, _ = await comm.connect()
+            assert connected is False
+            await comm.disconnect()
+
+        asyncio.run(run())
+
+    def test_ws_accepts_member_and_receives_broadcast(self, db):
+        from channels.layers import get_channel_layer
+
+        from api.realtime import org_realtime_group_name
+        from tests.conftest import make_member, make_org, make_user
+
+        org = make_org(slug="ws-live-org")
+        user = make_user(email="live@test.com")
+        make_member(org=org, user=user, role="admin")
+        token = create_access_token(str(user.id), auth_kind="amplex_local")
+        headers = [(b"cookie", f"amplex_access={token}".encode())]
+
+        async def run():
+            layer = get_channel_layer()
+            comm = WebsocketCommunicator(
+                application, f"/amplex/ws/org/{org.slug}/", headers=headers
+            )
+            ok, _ = await comm.connect()
+            assert ok is True
+            payload = {"domain": "amplex", "type": "leads_updated", "lead_id": 42}
+            await layer.group_send(
+                org_realtime_group_name(org.slug),
+                {"type": "crm_push", "payload": payload},
+            )
+            msg = await comm.receive_json_from()
+            assert msg["domain"] == "amplex"
+            assert msg["type"] == "leads_updated"
+            assert msg["lead_id"] == 42
+            await comm.disconnect()
+
+        asyncio.run(run())

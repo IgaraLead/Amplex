@@ -1,10 +1,14 @@
 # Amplex Development Guidelines
 
-Amplex is the **CRM pipeline platform** in the IgaraLead ecosystem. It manages sales pipelines, deals, and cross-product conversations through Nexus.
+Amplex is the **CRM pipeline platform** — sales pipelines, deals, and lead lifecycle.
+
+## Planejamento de produto
+
+Roadmap MVP: `IgaraDocs/ECOSYSTEM.md`. Ecossistema diferido: `IgaraDocs/internal/deferred-ecosystem-hub-and-integrations.md`. Este ficheiro cobre execução técnica do Amplex.
 
 ## Tech Stack
 
-- **Backend**: Django 5.1 + Gunicorn + PostgreSQL 16 (unified `igaralead` DB) + Redis 7 + S3/MinIO
+- **Backend**: Django 5.1 + Gunicorn + PostgreSQL 16 (DB do produto no MVP) + Redis 7 + S3/MinIO
 - **Frontend**: React 19 + Vite 8 + TypeScript 5.3 (strict) + TanStack Query 5 + Zustand 5 + Tailwind CSS 4 + DaisyUI 5 (`igara` theme)
 - **Storage**: S3 (boto3) for exports and attachments
 - **Formatting/Lint**: Black (88 cols) + Ruff (py312) + ESLint 9 flat config + Prettier
@@ -38,15 +42,16 @@ npx tsc --noEmit                                 # Typecheck
   - `storage.py` — S3/MinIO file operations (boto3)
   - `views/` — 22 view modules: `__init__` (health), `auth`, `leads`, `pipeline`, `dashboard`, `contacts`, `interactions`, `stages`, `custom_fields`, `tags`, `sources`, `lost_reasons`, `users`, `attachments`, `export`, `config`, `permissions`, `notifications`, `orgs`, `hub_users`, `integrations`, `s2s`
   - `urls.py` — RESTful URL routing with dispatch helpers
-- **Settings** (`amplex/`): Django project config — `settings.py`, `settings_test.py`, `urls.py`, `views.py` (SPA catch-all), `wsgi.py`
+  - `routing.py` + `consumers.py` — WebSocket org channel (`/amplex/ws/org/<slug>/`); `realtime.py` — Redis group broadcast after CRM writes
+- **Settings** (`amplex/`): Django project config — `settings.py`, `settings_test.py`, `urls.py`, `views.py` (SPA catch-all), `wsgi.py`, `asgi.py` (HTTP + WS via Channels)
 - **Frontend** (`web/src/`): React 19 + Vite 8 + Tailwind 4 + DaisyUI 5 — path alias `@/` → `src/`
   - `app/` — `App.tsx` (shell), `routes.tsx` (rotas e lazy loading)
   - `modules/` — `auth/` (Login, OrgSelect), `dashboard/`, `pipeline/` (Kanban), `leads/` (list + detail), `contacts/`, `settings/`
-  - `shared/` — `api.ts`, `store.ts` (Zustand), `branding.ts`, `layout/` (AppLayout), `ui/` (ErrorBoundary, Logo, ProductSwitcher, Toast)
-- **Cache**: Redis 7 (KEY_PREFIX="amplex") for rate limiting
-- **Static serving**: Production serves `static/` via Django/WhiteNoise (gunicorn, no nginx)
+  - `shared/` — `api.ts`, `store.ts` (Zustand), `queryClient.ts`, `useOrgRealtime.ts`, `branding.ts`, `layout/` (AppLayout), `ui/` (ErrorBoundary, Logo, ProductSwitcher, Toast)
+- **Cache**: Redis 7 (KEY_PREFIX="amplex") for rate limiting; separate Redis DB for Channels (`REDIS_CHANNEL_URL` optional)
+- **Static serving**: Production serves `static/` via Django/WhiteNoise (gunicorn ASGI + `UvicornWorker`, no nginx)
 
-## Middleware Stack (same pattern as Hub)
+## Middleware Stack
 
 1. CORS — configurable origins (django-cors-headers)
 2. Security headers — `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, HSTS (prod)
@@ -54,18 +59,6 @@ npx tsc --noEmit                                 # Typecheck
 4. Request body limit — 2 MB default
 5. Rate limiting — 120 RPM global, 10 RPM auth (cache-backed)
 6. Request logging — structured JSON
-
-## Ecosystem Alignment
-
-Amplex is the CRM pipeline platform in the IgaraLead ecosystem. These principles govern all code:
-
-1. **Hub owns organizations and users** — Amplex syncs from Hub via JWT, never creates orgs. Hub is the single source of truth for identity.
-2. **Amplex owns leads, pipeline, and revenue data** — no other product manages sales pipeline. Contacts may be enriched by Entity or imported from Nexus, but lead lifecycle is Amplex-only.
-3. **Tenant isolation via `client_slug`** — every protected route scoped to `/id/{slug}/` (maps to `client_slug` from JWT). Path validation required. See ECOSYSTEM.md isolation spec.
-4. **No public APIs** — all inter-platform communication via `X-Api-Key` (Hub metrics, Nexus opportunities, Entity enrichment). User auth via JWT only.
-5. **Data ownership** — Hub: users, orgs, subscriptions. Amplex: leads, stages, revenue, activities. Products integrate via well-defined contracts in ECOSYSTEM.md.
-6. **Integration contracts** — Amplex provides: `POST /amplex/api/opportunities` (Nexus), `GET /amplex/api/opportunities/{id}` (Nexus), `PUT /amplex/api/opportunities/{id}/stage` (Nexus), `GET /amplex/api/contacts/search` (Nexus, Entity), `POST /amplex/api/contacts/import` (Entity), `GET /amplex/api/metrics` (Hub). Changes need contract review.
-7. **When evaluating changes**: check ECOSYSTEM.md data ownership matrix, flag if touching shared tables, verify all tenant isolation, confirm no reinvention of Hub auth patterns.
 
 ## Django / Python Principles
 
@@ -91,20 +84,13 @@ Amplex is the CRM pipeline platform in the IgaraLead ecosystem. These principles
 
 ## Conventions
 
-- **Auth**: HS256 JWT cookies (`amplex_access`/`amplex_refresh`/`amplex_csrf`), direct login against Hub's shared PostgreSQL DB. Auto-provisions users via shared DB.
-- **X-Api-Key**: for internal integrations via `s2s.py` (Hub metrics, Nexus opportunity integration, Entity contact import)
+- **Auth**: HS256 JWT cookies (`amplex_access`/`amplex_refresh`/`amplex_csrf`); MVP login em **`AmplexUser`**.
+- **X-Api-Key**: integrações internas via `s2s.py` (métricas, oportunidades Nexus, import Entity) — contratos em IgaraDocs `internal/deferred-ecosystem-hub-and-integrations.md`
 - **Health check**: `GET /amplex/api/health` — checks api, database
-- **Unified database**: Single `igaralead` DB. Amplex tables use `amplex_*` prefix. Hub shared tables accessed via `managed=False` models
+- **Database**: tabelas `amplex_*` no banco do produto (MVP standalone); shared DB fica para pós-MVP
 - API endpoints: all under `/amplex/api/` prefix (dev proxy in Vite config)
 - Frontend routes: `/login`, `/orgs`, `/id/:slug/{dashboard,pipeline,leads,contacts,settings}`
 - **Tests**: pytest-django with `DJANGO_SETTINGS_MODULE=amplex.settings_test` (SQLite)
-
-## Ecosystem Integration
-
-- **Hub**: shared DB for org/user/subscription data, metrics pull via `X-Api-Key`
-- **Nexus**: `POST /id/{slug}/igaralead/api/conversations/find_or_create` and `POST /id/{slug}/igaralead/api/messages` for cross-product messaging
-- **Entity**: enriched company data lookup for pipeline contacts
-- **Hub → Amplex**: `GET /amplex/metrics` — metrics for Hub dashboard
 
 ## Post-Change Verification (MANDATORY)
 

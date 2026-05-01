@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { Home, BarChart3, MessageSquare, Search, LayoutGrid } from 'lucide-react';
 import { apiGet } from '@/shared/api';
-import { HUB_NAME, AMPLEX_NAME, NEXUS_NAME, ENTITY_NAME } from '@/shared/branding';
+import { CONTROL_PLANE_NAME, AMPLEX_NAME, NEXUS_NAME, ENTITY_NAME } from '@/shared/branding';
 
 interface Product {
   key: string;
@@ -14,9 +14,9 @@ interface Product {
 
 const PRODUCTS: Product[] = [
   {
-    key: 'hub',
-    name: HUB_NAME,
-    description: 'Painel Central',
+    key: 'control_plane',
+    name: CONTROL_PLANE_NAME,
+    description: 'Admin unificado (opcional)',
     url: '',
     icon: <Home size={16} />,
     colorClass: 'bg-primary/10 text-primary',
@@ -57,8 +57,9 @@ export default function ProductSwitcher() {
       .then((raw: unknown) => {
         const data = raw as Record<string, string> | null;
         if (!data) return;
+        const cp = (data.control_plane_url as string) || (data.hub_url as string) || '';
         const urls: Record<string, string> = {
-          hub: data.hub_url || '',
+          control_plane: cp,
           nexus: data.nexus_url || '',
           entity: data.entity_url || '',
           amplex: window.location.origin,
@@ -76,7 +77,7 @@ export default function ProductSwitcher() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
-  const visible = products.filter(p => p.key === 'amplex' || p.key === 'hub' || p.url);
+  const visible = products.filter(p => p.key === 'amplex' || p.key === 'control_plane' || p.url);
 
   return (
     <div className="relative" ref={ref}>

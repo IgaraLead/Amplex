@@ -69,8 +69,12 @@ def get_current_user(request):
     Returns (user_dict, None) on success or (None, JsonResponse) on error.
     user_dict has: user_id, name, email, role, hub_id, is_super_admin, memberships.
     """
-    from .hub_auth import decode_access_token
-    from .models import AmplexUser, SharedUser
+    from .access_tokens import (
+        AUTH_KIND_AMPLEX_LOCAL,
+        AUTH_KIND_SHARED,
+        decode_access_token,
+    )
+    from .models import AmplexOrgMember, AmplexUser, SharedUser
 
     token = None
 
@@ -95,7 +99,39 @@ def get_current_user(request):
     if not user_id_str:
         return None, JsonResponse({"detail": "Token inválido"}, status=401)
 
-    # Look up shared user for roles and membership info
+    auth_kind = claims.get("auth_kind", AUTH_KIND_SHARED)
+
+    if auth_kind == AUTH_KIND_AMPLEX_LOCAL:
+        try:
+            aid = int(user_id_str)
+        except (TypeError, ValueError):
+            return None, JsonResponse({"detail": "Token inválido"}, status=401)
+        au = AmplexUser.objects.filter(id=aid, active=True).first()
+        if not au:
+            return None, JsonResponse({"detail": "Usuário não encontrado"}, status=401)
+        if (
+            not au.is_platform_super_admin
+            and not AmplexOrgMember.objects.filter(user=au, active=True).exists()
+        ):
+            return None, JsonResponse(
+                {"detail": "Sua organização não possui acesso ao Amplex"},
+                status=403,
+            )
+        role = "admin" if au.is_platform_super_admin else "user"
+        if AmplexOrgMember.objects.filter(
+            user=au, active=True, role__in=("admin", "administrator")
+        ).exists():
+            role = "admin"
+        return {
+            "user_id": au.id,
+            "name": au.name,
+            "email": au.email,
+            "role": role,
+            "hub_id": au.hub_id or "",
+            "is_super_admin": au.is_platform_super_admin,
+            "memberships": [],
+        }, None
+
     shared_user = SharedUser.objects.filter(id=user_id_str).first()
     if not shared_user or not shared_user.active:
         return None, JsonResponse({"detail": "Usuário não encontrado"}, status=401)
@@ -103,7 +139,6 @@ def get_current_user(request):
     roles = shared_user.roles if isinstance(shared_user.roles, list) else []
     is_super_admin = "super_admin" in roles
 
-    # Platform access check
     if not is_super_admin:
         from .models import SharedMembership, SharedOrganization
 
@@ -119,7 +154,6 @@ def get_current_user(request):
                 status=403,
             )
 
-    # Resolve local user
     user = AmplexUser.objects.filter(hub_id=str(shared_user.id)).first()
     if not user and shared_user.email:
         user = AmplexUser.objects.filter(email=shared_user.email).first()
@@ -141,7 +175,6 @@ def get_current_user(request):
         user.hub_synced_at = timezone.now()
         user.save(update_fields=["hub_id", "hub_synced_at"])
 
-    # Sync memberships from shared DB
     _sync_memberships_from_db(user, shared_user)
 
     role = "admin" if any(r in ("admin", "super_admin") for r in roles) else "user"
@@ -183,8 +216,15 @@ def _sync_memberships_from_db(user, shared_user):
             org.slug = shared_org.slug
             org.save(update_fields=["slug"])
 
+        role = (
+            "administrator"
+            if (m.role or "").lower() in ("admin", "administrator")
+            else "member"
+        )
         try:
-            AmplexOrgMember.objects.get_or_create(org=org, user=user)
+            AmplexOrgMember.objects.get_or_create(
+                org=org, user=user, defaults={"role": role}
+            )
         except IntegrityError:
             # Concurrent /auth/me requests can attempt this insert at the same time.
             continue
@@ -219,7 +259,7 @@ def get_org_context(request, slug):
                 None,
                 JsonResponse({"detail": "Sem acesso a esta organização"}, status=403),
             )
-        if membership.role == "admin":
+        if membership.role in ("admin", "administrator"):
             current_user["role"] = "admin"
     else:
         current_user["role"] = "admin"
@@ -291,7 +331,12 @@ def require_api_key(view_func):
         api_key = request.headers.get("X-Api-Key", "")
         expected_keys = list(getattr(settings, "INTERNAL_API_KEYS", []) or [])
         # Keep tests and runtime flexible if keys are patched dynamically.
-        for key_name in ("HUB_API_KEY", "NEXUS_API_KEY", "ENTITY_API_KEY"):
+        for key_name in (
+            "HUB_API_KEY",
+            "DIRECTORY_API_KEY",
+            "NEXUS_API_KEY",
+            "ENTITY_API_KEY",
+        ):
             value = getattr(settings, key_name, "")
             if value and value not in expected_keys:
                 expected_keys.append(value)

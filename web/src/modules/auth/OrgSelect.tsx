@@ -58,6 +58,15 @@ export default function OrgSelect() {
       <div className="card bg-base-300 w-full max-w-sm">
         <div className="card-body">
           <h2 className="text-xl font-semibold mb-4 text-center">Selecionar organização</h2>
+          {user.is_super_admin && (
+            <button
+              type="button"
+              className="btn btn-outline btn-sm mb-3 w-full"
+              onClick={() => navigate('/super-admin', { replace: true })}
+            >
+              Acessar Super Admin
+            </button>
+          )}
           <div className="flex flex-col gap-3">
             {orgs.map(org => (
               <button

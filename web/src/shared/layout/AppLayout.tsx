@@ -3,8 +3,9 @@ import { Outlet, NavLink, Navigate, useNavigate, useParams } from 'react-router-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/store';
 import { apiGet, apiPost, apiDelete } from '@/shared/api';
+import { useOrgRealtime } from '@/shared/useOrgRealtime';
 import Logo from '@/shared/ui/Logo';
-import { BRAND_NAME, BRAND_URL, NEXUS_NAME, ENTITY_NAME, AMPLEX_NAME } from '@/shared/branding';
+import { BRAND_NAME, BRAND_URL } from '@/shared/branding';
 import { Check, X, Bell, Menu } from 'lucide-react';
 
 interface NavItem {
@@ -84,25 +85,10 @@ function NavIcon({
   }
 }
 
-const CURRENT_PLATFORM = 'amplex';
-
-interface PlatformItem {
-  key: string;
-  name: string;
-  url: string;
-}
-
-const STATIC_PLATFORMS: PlatformItem[] = [
-  { key: 'entity', name: ENTITY_NAME, url: '' },
-  { key: 'amplex', name: AMPLEX_NAME, url: '' },
-  { key: 'nexus', name: NEXUS_NAME, url: '' },
-];
-
 export default function AppLayout() {
   const { user, loading, fetchUser, logout, currentOrg, setCurrentOrg } = useAuth();
   const navigate = useNavigate();
   const { slug } = useParams<{ slug: string }>();
-  const [platformItems, setPlatformItems] = useState<PlatformItem[]>(STATIC_PLATFORMS);
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
   const sidebarWidth = sidebarExpanded ? 260 : 60;
 
@@ -119,22 +105,7 @@ export default function AppLayout() {
 
   const orgBase = slug ? `/id/${slug}` : '';
 
-  useEffect(() => {
-    if (!currentOrg) return;
-    apiGet('/crm/config')
-      .then((raw: unknown) => {
-        const data = raw as Record<string, string> | null;
-        if (!data) return;
-        const urls: Record<string, string> = {
-          hub: data.hub_url || '',
-          nexus: data.nexus_url || '',
-          entity: data.entity_url || '',
-          amplex: window.location.origin,
-        };
-        setPlatformItems(STATIC_PLATFORMS.map(p => ({ ...p, url: urls[p.key] || p.url })));
-      })
-      .catch(() => {});
-  }, [currentOrg]);
+  useOrgRealtime(slug);
 
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -184,7 +155,6 @@ export default function AppLayout() {
   }, [notificationsOpen]);
 
   const badgeCount = notifData?.badge_count || 0;
-  const visiblePlatforms = platformItems.filter(p => p.key === CURRENT_PLATFORM || Boolean(p.url));
 
   useEffect(() => {
     fetchUser();
@@ -206,38 +176,11 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen bg-base-100">
-      <header className="fixed inset-x-0 top-0 z-40 h-[60px] border-b border-white/[0.05] bg-base-100/95 px-6 backdrop-blur-sm">
-        <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Logo size={28} />
-            </div>
-            <div className="flex items-center gap-1">
-              {visiblePlatforms.map(p => {
-                const isCurrent = p.key === CURRENT_PLATFORM;
-                const canNavigate = !isCurrent && !!p.url;
-                return (
-                  <a
-                    key={p.key}
-                    href={canNavigate ? p.url : undefined}
-                    onClick={e => {
-                      if (!canNavigate) e.preventDefault();
-                    }}
-                    className={[
-                      'rounded-xl px-3 py-1.5 text-sm font-medium no-underline transition-colors',
-                      isCurrent
-                        ? 'border border-white/[0.12] bg-white/[0.1] text-base-content'
-                        : 'text-base-content/45 hover:bg-white/[0.05] hover:text-base-content',
-                      !canNavigate && !isCurrent && 'cursor-default opacity-40',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                  >
-                    <span>{p.name}</span>
-                  </a>
-                );
-              })}
-            </div>
+      <header className="fixed inset-x-0 top-0 z-40 h-[60px] border-b border-white/[0.05] bg-base-100 px-6">
+        <div className="mx-auto flex h-full max-w-[1040px] items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Logo size={24} />
+            <span className="brand-text text-sm leading-none tracking-tight">IgaraLead</span>
           </div>
 
           <div className="relative flex items-center gap-2" ref={notifRef}>
