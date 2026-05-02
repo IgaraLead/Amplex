@@ -7,13 +7,14 @@ from django.contrib.auth.hashers import check_password
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
-from api.auth_utils import clear_auth_cookies, login_required, set_auth_cookies
-from api.hub_auth import (
+from api.access_tokens import (
+    AUTH_KIND_AMPLEX_LOCAL,
     create_access_token,
     create_refresh_token,
     decode_refresh_token,
 )
-from api.models import AmplexOrgMember, SharedUser
+from api.auth_utils import clear_auth_cookies, login_required, set_auth_cookies
+from api.models import AmplexOrgMember, AmplexUser
 
 logger = logging.getLogger(__name__)
 
@@ -26,43 +27,28 @@ def login(request):
     if not email or not password:
         return JsonResponse({"error": "E-mail e senha são obrigatórios"}, status=400)
 
-    user = SharedUser.objects.filter(email=email).first()
-    if not user or not user.active:
-        return JsonResponse({"error": "Credenciais inválidas"}, status=401)
-
-    if not check_password(password, user.password_hash):
-        return JsonResponse({"error": "Credenciais inválidas"}, status=401)
-
-    # Platform access check
-    roles = user.roles if isinstance(user.roles, list) else []
-    if "super_admin" not in roles:
-        has_amplex = any(
-            m.get("active_products", {}).get("amplex")
-            for m in _get_memberships_for_token(user)
-        )
-        if not has_amplex:
+    au = AmplexUser.objects.filter(email=email, active=True).first()
+    if (
+        au
+        and au.password_hash
+        and au.password_hash not in ("!",)
+        and check_password(password, au.password_hash)
+    ):
+        if (
+            not au.is_platform_super_admin
+            and not AmplexOrgMember.objects.filter(user=au, active=True).exists()
+        ):
             return JsonResponse(
                 {"error": "Sua organização não possui acesso ao Amplex"},
                 status=403,
             )
+        access_token = create_access_token(str(au.id), auth_kind=AUTH_KIND_AMPLEX_LOCAL)
+        refresh_token = create_refresh_token(au, AUTH_KIND_AMPLEX_LOCAL)
+        response = JsonResponse({"access_token": access_token, "token_type": "bearer"})
+        set_auth_cookies(response, access_token, refresh_token)
+        return response
 
-    access_token = create_access_token(str(user.id))
-    refresh_token = create_refresh_token(user)
-    response = JsonResponse({"access_token": access_token, "token_type": "bearer"})
-    set_auth_cookies(response, access_token, refresh_token)
-    return response
-
-
-def _get_memberships_for_token(user):
-    """Helper to build membership dicts from shared DB."""
-    from api.models import SharedMembership, SharedOrganization
-
-    memberships = []
-    for m in SharedMembership.objects.filter(user_id=user.id):
-        org = SharedOrganization.objects.filter(id=m.organization_id).first()
-        if org:
-            memberships.append({"active_products": org.active_products or {}})
-    return memberships
+    return JsonResponse({"error": "Credenciais inválidas"}, status=401)
 
 
 @require_http_methods(["POST"])
@@ -76,12 +62,23 @@ def refresh(request):
     except ValueError:
         return JsonResponse({"error": "Refresh token inválido"}, status=401)
 
-    user = SharedUser.objects.filter(id=claims.get("sub")).first()
-    if not user or not user.active:
+    auth_kind = claims.get("auth_kind", AUTH_KIND_AMPLEX_LOCAL)
+    sub = claims.get("sub")
+
+    if auth_kind != AUTH_KIND_AMPLEX_LOCAL:
+        return JsonResponse({"error": "Refresh token inválido"}, status=401)
+
+    try:
+        aid = int(sub)
+    except (TypeError, ValueError):
+        return JsonResponse({"error": "Refresh token inválido"}, status=401)
+
+    au = AmplexUser.objects.filter(id=aid, active=True).first()
+    if not au:
         return JsonResponse({"error": "Usuário não encontrado"}, status=401)
 
-    access_token = create_access_token(str(user.id))
-    new_refresh = create_refresh_token(user)
+    access_token = create_access_token(str(au.id), auth_kind=AUTH_KIND_AMPLEX_LOCAL)
+    new_refresh = create_refresh_token(au, AUTH_KIND_AMPLEX_LOCAL)
     response = JsonResponse({"access_token": access_token, "token_type": "bearer"})
     set_auth_cookies(response, access_token, new_refresh)
     return response
@@ -114,6 +111,7 @@ def me(request):
             "name": user["name"],
             "email": user["email"],
             "role": user["role"],
+            "is_super_admin": user["is_super_admin"],
             "hub_id": user["hub_id"],
             "organizations": orgs,
         }

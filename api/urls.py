@@ -24,6 +24,7 @@ from .views import (
     s2s,
     sources,
     stages,
+    super_admin,
     tags,
     users,
 )
@@ -92,9 +93,19 @@ urlpatterns = [
         name="hub-users",
     ),
     path(
+        "id/<slug:slug>/crm/hub/users",
+        _dispatch(GET=hub_users.list_hub_users, POST=hub_users.create_hub_user),
+        name="crm-hub-users",
+    ),
+    path(
         "id/<slug:slug>/hub-users/<str:hub_user_id>",
         _dispatch(PUT=hub_users.update_hub_user, DELETE=hub_users.deactivate_hub_user),
         name="hub-users-detail",
+    ),
+    path(
+        "id/<slug:slug>/crm/hub/users/<str:hub_user_id>",
+        _dispatch(PUT=hub_users.update_hub_user, DELETE=hub_users.deactivate_hub_user),
+        name="crm-hub-users-detail",
     ),
     # Dashboard
     path("id/<slug:slug>/crm/dashboard", dashboard.dashboard, name="dashboard"),
@@ -107,6 +118,11 @@ urlpatterns = [
         "id/<slug:slug>/crm/dashboard/next-contacts",
         dashboard.next_contacts,
         name="dashboard-next-contacts",
+    ),
+    path(
+        "id/<slug:slug>/crm/leads/next-contacts",
+        dashboard.next_contacts,
+        name="dashboard-next-contacts-legacy",
     ),
     # Pipeline
     path("id/<slug:slug>/crm/pipeline", pipeline.pipeline, name="pipeline"),
@@ -265,6 +281,16 @@ urlpatterns = [
         permissions.update_permission,
         name="permissions-detail",
     ),
+    path(
+        "id/<slug:slug>/permissions/users",
+        permissions.list_permissions,
+        name="permissions-legacy",
+    ),
+    path(
+        "id/<slug:slug>/permissions/users/<int:user_id>",
+        permissions.update_permission,
+        name="permissions-detail-legacy",
+    ),
     # Notifications
     path(
         "id/<slug:slug>/crm/notifications",
@@ -306,5 +332,15 @@ urlpatterns = [
         "id/<slug:slug>/crm/integrations/search-lead",
         integrations.search_lead,
         name="integrations-search",
+    ),
+    # Super-admin (platform scoped)
+    path("super-admin/overview", super_admin.overview, name="super-admin-overview"),
+    path(
+        "super-admin/organizations", super_admin.organizations, name="super-admin-orgs"
+    ),
+    path(
+        "super-admin/organizations/<slug:slug>/quotas",
+        super_admin.organization_quotas,
+        name="super-admin-org-quotas",
     ),
 ]

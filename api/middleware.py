@@ -137,6 +137,9 @@ class RateLimitMiddleware:
 # ── CSRF (amplex_access / amplex_csrf cookies) ───────────
 
 _CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+_CSRF_EXEMPT_PATHS = {
+    "/amplex/api/auth/login",
+}
 
 
 class AmplexCsrfMiddleware:
@@ -147,6 +150,8 @@ class AmplexCsrfMiddleware:
 
     def __call__(self, request):
         if request.method in _CSRF_SAFE_METHODS:
+            return self.get_response(request)
+        if request.path in _CSRF_EXEMPT_PATHS:
             return self.get_response(request)
 
         has_cookie_auth = "amplex_access" in request.COOKIES
