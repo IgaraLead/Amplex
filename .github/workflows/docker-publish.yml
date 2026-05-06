@@ -15,41 +15,8 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install backend dependencies
-        run: pip install black ruff pytest pytest-django -r requirements.txt
-
-      - name: Format check
-        run: black --check api/ amplex/ tests/
-
-      - name: Lint backend
-        run: ruff check api/ amplex/ tests/ --config ruff.toml
-
-      - name: Test backend
-        run: python -m pytest tests/ --tb=short -v
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: Install frontend dependencies
-        working-directory: web
-        run: npm install
-
-      - name: Type-check frontend
-        working-directory: web
-        run: npx tsc --noEmit
-
-      - name: Lint frontend
-        working-directory: web
-        run: npx eslint .
+    uses: ./.github/workflows/ci.yml
+    secrets: inherit
 
   build:
     runs-on: ubuntu-latest
