@@ -17,9 +17,13 @@ export default function Login() {
     setError('');
     setLoading(true);
     try {
+      const csrf = document.cookie.match(/(?:^|;\s*)amplex_csrf=([^;]*)/)?.[1] ?? '';
       const res = await fetch('/amplex/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {}),
+        },
         credentials: 'include',
         body: JSON.stringify({ email, password }),
       });

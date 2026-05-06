@@ -46,9 +46,7 @@ export const useAuth = create<AuthState>(set => ({
   },
 
   logout: async () => {
-    await fetch('/amplex/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(
-      () => {}
-    );
+    await apiFetch('/auth/logout', { method: 'POST' }).catch(() => {});
     setApiOrgSlug(null);
     set({ user: null, currentOrg: null });
   },
