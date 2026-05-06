@@ -51,14 +51,22 @@ urlpatterns = [
     path("auth/me", auth.me, name="auth-me"),
     path("auth/logout", auth.logout, name="auth-logout"),
     path("admin/overview", admin_views.overview, name="admin-overview"),
-    path("admin/orgs", admin_views.list_orgs, name="admin-orgs"),
+    path(
+        "admin/orgs",
+        _dispatch(GET=admin_views.list_orgs, POST=admin_views.create_org),
+        name="admin-orgs",
+    ),
     path("admin/orgs/<int:org_id>", admin_views.update_org, name="admin-org-update"),
     path(
         "admin/orgs/<int:org_id>/members",
         admin_views.add_org_member,
         name="admin-org-member-add",
     ),
-    path("admin/users", admin_views.list_users, name="admin-users"),
+    path(
+        "admin/users",
+        _dispatch(GET=admin_views.list_users, POST=admin_views.create_user),
+        name="admin-users",
+    ),
     path(
         "admin/users/<int:user_id>", admin_views.update_user, name="admin-user-update"
     ),
