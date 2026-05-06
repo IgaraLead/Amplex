@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 from pathlib import Path
 
 from django.conf import settings
@@ -16,3 +17,19 @@ def spa_catch_all(request):
         except OSError:
             logger.exception("Failed to open SPA index at %s", _index_path)
     return HttpResponseNotFound("Frontend not built")
+
+
+def spa_asset(request, path):
+    asset_rel_path = Path("assets") / path
+    candidates = [
+        Path(settings.STATIC_ROOT) / asset_rel_path,
+        Path(settings.WHITENOISE_ROOT) / asset_rel_path,
+    ]
+    for candidate in candidates:
+        if candidate.is_file():
+            content_type, _ = mimetypes.guess_type(str(candidate))
+            return FileResponse(
+                open(candidate, "rb"),
+                content_type=content_type or "application/octet-stream",
+            )
+    return HttpResponseNotFound("Asset not found")
