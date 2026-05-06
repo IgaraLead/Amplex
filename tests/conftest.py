@@ -7,6 +7,7 @@ import uuid
 from unittest.mock import patch
 
 import pytest
+from django.contrib.auth.hashers import make_password
 from django.test import Client
 
 from api.models import (
@@ -18,23 +19,21 @@ from api.models import (
     Stage,
 )
 
-# ── Factory helpers ──────────────────────────────────────
 
-
-def make_org(*, name="TestOrg", hub_org_id=None, slug=None):
+def make_org(*, name="TestOrg", slug=None):
     return AmplexOrganization.objects.create(
         name=name,
-        hub_org_id=hub_org_id or str(uuid.uuid4()),
         slug=slug or f"test-{uuid.uuid4().hex[:8]}",
     )
 
 
-def make_user(*, name="TestUser", email="user@test.com", hub_id=None):
+def make_user(*, name="TestUser", email="user@test.com", password="secret"):
+    login = email
     return AmplexUser.objects.create(
         name=name,
         email=email,
-        login=email,
-        hub_id=hub_id or str(uuid.uuid4()),
+        login=login,
+        password_hash=make_password(password),
     )
 
 
@@ -60,33 +59,15 @@ def make_lead(*, org, name="Test Lead", stage=None, user=None, contact=None):
     )
 
 
-# ── Mock auth decorator helper ──────────────────────────
-
-
-def mock_user_dict(user, role="admin", org=None, is_super_admin=False):
+def mock_user_dict(user, role="admin", org=None):
     """Build the dict that get_current_user returns."""
-    memberships = []
-    if org:
-        memberships.append(
-            {
-                "org_id": org.id,
-                "org_name": org.name,
-                "role": role,
-                "active_products": {"amplex": True},
-            }
-        )
     return {
         "user_id": user.id,
         "name": user.name,
         "email": user.email,
         "role": role,
-        "hub_id": user.hub_id or "",
-        "is_super_admin": is_super_admin,
-        "memberships": memberships,
+        "memberships": [],
     }
-
-
-# ── Fixtures ─────────────────────────────────────────────
 
 
 @pytest.fixture

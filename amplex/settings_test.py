@@ -10,8 +10,6 @@ os.environ.setdefault(
 )
 os.environ.setdefault("AMPLEX_RATE_LIMIT_RPM", "10000")
 os.environ.setdefault("AMPLEX_AUTH_RATE_LIMIT_RPM", "10000")
-os.environ.setdefault("HUB_API_KEY", "test-api-key")
-
 from amplex.settings import *  # noqa: F403
 
 DATABASES = {

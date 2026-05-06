@@ -20,7 +20,7 @@ PERMISSION_DEFAULTS = {
 
 def get_user_permission(member, key):
     """Return permission value from member.permissions JSON dict."""
-    perms = member.user.permissions or {}
+    perms = member.permissions or {}
     return perms.get(key, PERMISSION_DEFAULTS.get(key, False))
 
 
@@ -34,28 +34,12 @@ def list_permissions(request, slug):
     if not member:
         return JsonResponse({"detail": "Not a member"}, status=403)
 
-    members = AmplexOrgMember.objects.filter(org=org, active=True).select_related(
-        "user"
-    )
-    users = []
-    for org_member in members:
-        if not org_member.user.active:
-            continue
-        perms = org_member.user.permissions or {}
-        users.append(
-            {
-                "id": org_member.user.id,
-                "name": org_member.user.name,
-                "email": org_member.user.email,
-                "role": org_member.role,
-                "permissions": {
-                    key: perms.get(key, default)
-                    for key, default in PERMISSION_DEFAULTS.items()
-                },
-            }
-        )
+    perms = member.permissions or {}
+    result = {}
+    for key, default in PERMISSION_DEFAULTS.items():
+        result[key] = perms.get(key, default)
 
-    return JsonResponse({"users": users})
+    return JsonResponse({"permissions": result, "role": member.role})
 
 
 @require_http_methods(["PUT"])
@@ -68,14 +52,13 @@ def update_permission(request, slug, user_id):
     if not member:
         return JsonResponse({"detail": "Member not found"}, status=404)
 
-    incoming_permissions = body.get("permissions", body)
-    perms = member.user.permissions or {}
+    perms = member.permissions or {}
     for key in PERMISSION_DEFAULTS:
-        if key in incoming_permissions:
-            perms[key] = bool(incoming_permissions[key])
+        if key in body:
+            perms[key] = bool(body[key])
 
-    member.user.permissions = perms
-    member.user.save(update_fields=["permissions"])
+    member.permissions = perms
+    member.save(update_fields=["permissions"])
     return JsonResponse({"permissions": perms})
 
 
@@ -94,13 +77,13 @@ def bulk_update_permissions(request, slug):
         if not member:
             continue
 
-        perms = member.user.permissions or {}
+        perms = member.permissions or {}
         for key in PERMISSION_DEFAULTS:
             if key in item:
                 perms[key] = bool(item[key])
 
-        member.user.permissions = perms
-        member.user.save(update_fields=["permissions"])
+        member.permissions = perms
+        member.save(update_fields=["permissions"])
         results.append({"user_id": uid, "permissions": perms})
 
     return JsonResponse({"results": results})

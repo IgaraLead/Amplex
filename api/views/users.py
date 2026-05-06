@@ -1,10 +1,13 @@
-"""User views."""
+"""User views — org membership listing and admin-created accounts."""
 
+import json
+
+from django.contrib.auth.hashers import make_password
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
-from api.auth_utils import org_required
-from api.models import AmplexOrgMember
+from api.auth_utils import org_admin_required, org_required
+from api.models import AmplexOrgMember, AmplexUser
 
 
 @require_http_methods(["GET"])
@@ -29,4 +32,43 @@ def list_users(request, slug):
                 if m.user.active
             ]
         }
+    )
+
+
+@require_http_methods(["POST"])
+@org_admin_required
+def create_user(request, slug):
+    org = request.amplex_org
+    body = json.loads(request.body)
+    email = (body.get("email") or "").strip().lower()
+    password = body.get("password") or ""
+    name = (body.get("name") or "").strip()
+    role = body.get("role", "member")
+    if role not in ("admin", "member"):
+        role = "member"
+
+    if not email or not password or len(password) < 6:
+        return JsonResponse(
+            {"detail": "E-mail e senha (mín. 6 caracteres) obrigatórios"},
+            status=400,
+        )
+
+    if not name:
+        name = email.split("@")[0]
+
+    if AmplexUser.objects.filter(email=email).exists():
+        return JsonResponse({"detail": "E-mail já cadastrado"}, status=409)
+
+    user = AmplexUser.objects.create(
+        email=email,
+        login=email,
+        name=name,
+        password_hash=make_password(password),
+    )
+    member_role = "admin" if role == "admin" else "member"
+    AmplexOrgMember.objects.create(org=org, user=user, role=member_role)
+
+    return JsonResponse(
+        {"id": user.id, "name": user.name, "email": user.email, "role": member_role},
+        status=201,
     )

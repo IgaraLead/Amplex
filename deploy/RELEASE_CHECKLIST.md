@@ -1,21 +1,8 @@
-# Release checklist — Amplex
+# Release checklist — Amplex (standalone MVP)
 
 - [ ] `pytest tests/ -q` sem falhas
 - [ ] `cd web && npm run build` sem falhas
-- [ ] Validar endpoints S2S críticos:
-  - [ ] `POST /amplex/api/opportunities`
-  - [ ] `GET /amplex/api/opportunities/{id}`
-  - [ ] `PUT /amplex/api/opportunities/{id}/stage`
-- [ ] Validar integrações (`/crm/integrations`) retornando `actions`
-- [ ] Smoke com Docker local (`docker compose up --build`) e health sem 5xx recorrente
-- [ ] Confirmar variáveis obrigatórias configuradas:
-  - [ ] `HUB_URL`, `HUB_API_KEY`
-  - [ ] `NEXUS_URL`, `NEXUS_API_KEY`
-  - [ ] `ENTITY_URL`, `ENTITY_API_KEY`
-- [ ] Executar smoke em staging:
-  - [ ] Nexus cria oportunidade no Amplex
-  - [ ] Mudança de estágio no Amplex refletida no Nexus
-  - [ ] Amplex abre conversa e recebe `conversation_url`
-- [ ] Validar rollback:
-  - [ ] Deploy anterior disponível
-  - [ ] Procedimento testado em janela controlada
+- [ ] `black --check api/ amplex/` e `ruff check api/ amplex/ --config ruff.toml`
+- [ ] Smoke com Docker (`docker compose` ou imagem production) — `GET /amplex/api/health` estável
+- [ ] Variáveis em `stack.env` / `.env`: `SECRET_KEY_BASE`, Postgres, Redis, MinIO, `FRONTEND_URL`, seeds `AMPLEX_ADMIN_*` / `AMPLEX_DEFAULT_ORG_*`
+- [ ] Rollback: imagem anterior disponível e procedimento ensaiado

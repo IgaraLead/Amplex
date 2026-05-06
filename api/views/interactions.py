@@ -8,7 +8,6 @@ from django.views.decorators.http import require_http_methods
 
 from api.auth_utils import org_required
 from api.models import Activity, Interaction, InteractionFile, Lead
-from api.realtime import broadcast_leads_updated
 from api.storage import upload_bytes
 
 VALID_TYPES = ("phone", "email", "whatsapp", "meeting", "visit", "note")
@@ -153,5 +152,4 @@ def create_interaction(request, slug, lead_id):
     if scheduled_activity:
         result["scheduled_activity"] = scheduled_activity
 
-    broadcast_leads_updated(org.slug, lead_id=lead.id)
     return JsonResponse(result, status=201)

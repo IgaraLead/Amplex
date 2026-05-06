@@ -18,13 +18,6 @@ from django.http import JsonResponse
 logger = logging.getLogger("amplex")
 _SLUG_PATH_RE = re.compile(r"/id/([^/]+)/")
 
-try:
-    from redis.exceptions import RedisError
-except ImportError:  # pragma: no cover - redis may be unavailable in tests
-
-    class RedisError(Exception):
-        """Fallback redis exception type when redis package is unavailable."""
-
 
 def _get_client_ip(request):
     forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -100,7 +93,7 @@ def _is_rate_limited(prefix, ip, limit):
             cache.set(key, 1, timeout=window)
         else:
             cache.incr(key)
-    except (ConnectionError, OSError, ValueError, RedisError):
+    except (ConnectionError, OSError, ValueError):
         pass
     return False
 
@@ -137,9 +130,6 @@ class RateLimitMiddleware:
 # ── CSRF (amplex_access / amplex_csrf cookies) ───────────
 
 _CSRF_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-_CSRF_EXEMPT_PATHS = {
-    "/amplex/api/auth/login",
-}
 
 
 class AmplexCsrfMiddleware:
@@ -150,8 +140,6 @@ class AmplexCsrfMiddleware:
 
     def __call__(self, request):
         if request.method in _CSRF_SAFE_METHODS:
-            return self.get_response(request)
-        if request.path in _CSRF_EXEMPT_PATHS:
             return self.get_response(request)
 
         has_cookie_auth = "amplex_access" in request.COOKIES

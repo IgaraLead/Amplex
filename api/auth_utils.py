@@ -1,24 +1,19 @@
 """
-Authentication utilities for Amplex.
+Authentication utilities for Amplex (standalone MVP).
 
-Local HS256 token validation, user provisioning, cookie management,
-and decorators for protecting views.
+Cookie-based JWT sessions and decorators for protecting views.
 """
 
 import functools
-import logging
 import secrets
 
-from django.conf import settings
-from django.db import IntegrityError
 from django.http import JsonResponse
-from django.utils import timezone
-
-logger = logging.getLogger(__name__)
 
 
 def set_auth_cookies(response, access_token, refresh_token=""):
     """Set amplex_access, amplex_refresh, and amplex_csrf cookies."""
+    from django.conf import settings
+
     response.set_cookie(
         key="amplex_access",
         value=access_token,
@@ -54,6 +49,8 @@ def set_auth_cookies(response, access_token, refresh_token=""):
 
 def clear_auth_cookies(response):
     """Clear all auth cookies."""
+    from django.conf import settings
+
     response.delete_cookie("amplex_access", path="/", domain=settings.COOKIE_DOMAIN)
     response.delete_cookie(
         "amplex_refresh",
@@ -63,27 +60,28 @@ def clear_auth_cookies(response):
     response.delete_cookie("amplex_csrf", path="/", domain=settings.COOKIE_DOMAIN)
 
 
+def _effective_global_role(user):
+    from .models import AmplexOrgMember
+
+    if AmplexOrgMember.objects.filter(user=user, active=True, role="admin").exists():
+        return "admin"
+    return "user"
+
+
 def get_current_user(request):
-    """Extract and validate user from request.
+    """Extract and validate user from JWT cookie or Bearer header.
 
     Returns (user_dict, None) on success or (None, JsonResponse) on error.
-    user_dict has: user_id, name, email, role, hub_id, is_super_admin, memberships.
     """
-    from .access_tokens import (
-        AUTH_KIND_AMPLEX_LOCAL,
-        AUTH_KIND_SHARED,
-        decode_access_token,
-    )
-    from .models import AmplexOrgMember, AmplexUser, SharedUser
+    from .models import AmplexUser
+    from .tokens import decode_access_token
 
     token = None
 
-    # 1. Authorization header
     auth_header = request.META.get("HTTP_AUTHORIZATION", "")
     if auth_header.startswith("Bearer "):
         token = auth_header[7:]
 
-    # 2. Amplex-specific cookie
     if not token:
         token = request.COOKIES.get("amplex_access")
 
@@ -99,142 +97,27 @@ def get_current_user(request):
     if not user_id_str:
         return None, JsonResponse({"detail": "Token inválido"}, status=401)
 
-    auth_kind = claims.get("auth_kind", AUTH_KIND_SHARED)
+    try:
+        uid = int(user_id_str)
+    except (TypeError, ValueError):
+        return None, JsonResponse({"detail": "Token inválido"}, status=401)
 
-    if auth_kind == AUTH_KIND_AMPLEX_LOCAL:
-        try:
-            aid = int(user_id_str)
-        except (TypeError, ValueError):
-            return None, JsonResponse({"detail": "Token inválido"}, status=401)
-        au = AmplexUser.objects.filter(id=aid, active=True).first()
-        if not au:
-            return None, JsonResponse({"detail": "Usuário não encontrado"}, status=401)
-        if (
-            not au.is_platform_super_admin
-            and not AmplexOrgMember.objects.filter(user=au, active=True).exists()
-        ):
-            return None, JsonResponse(
-                {"detail": "Sua organização não possui acesso ao Amplex"},
-                status=403,
-            )
-        role = "admin" if au.is_platform_super_admin else "user"
-        if AmplexOrgMember.objects.filter(
-            user=au, active=True, role__in=("admin", "administrator")
-        ).exists():
-            role = "admin"
-        return {
-            "user_id": au.id,
-            "name": au.name,
-            "email": au.email,
-            "role": role,
-            "hub_id": au.hub_id or "",
-            "is_super_admin": au.is_platform_super_admin,
-            "memberships": [],
-        }, None
-
-    shared_user = SharedUser.objects.filter(id=user_id_str).first()
-    if not shared_user or not shared_user.active:
+    user = AmplexUser.objects.filter(id=uid).first()
+    if not user or not user.active:
         return None, JsonResponse({"detail": "Usuário não encontrado"}, status=401)
 
-    roles = shared_user.roles if isinstance(shared_user.roles, list) else []
-    is_super_admin = "super_admin" in roles
-
-    if not is_super_admin:
-        from .models import SharedMembership, SharedOrganization
-
-        has_amplex = False
-        for m in SharedMembership.objects.filter(user_id=shared_user.id):
-            org = SharedOrganization.objects.filter(id=m.organization_id).first()
-            if org and (org.active_products or {}).get("amplex"):
-                has_amplex = True
-                break
-        if not has_amplex:
-            return None, JsonResponse(
-                {"detail": "Sua organização não possui acesso ao Amplex"},
-                status=403,
-            )
-
-    user = AmplexUser.objects.filter(hub_id=str(shared_user.id)).first()
-    if not user and shared_user.email:
-        user = AmplexUser.objects.filter(email=shared_user.email).first()
-
-    if not user:
-        display_name = shared_user.name or shared_user.email.split("@")[0]
-        user, created = AmplexUser.objects.get_or_create(
-            email=shared_user.email,
-            defaults={
-                "name": display_name,
-                "login": shared_user.email,
-                "hub_id": str(shared_user.id),
-            },
-        )
-        if created:
-            logger.info("Auto-provisioned user %s", shared_user.email)
-    elif not user.hub_id:
-        user.hub_id = str(shared_user.id)
-        user.hub_synced_at = timezone.now()
-        user.save(update_fields=["hub_id", "hub_synced_at"])
-
-    _sync_memberships_from_db(user, shared_user)
-
-    role = "admin" if any(r in ("admin", "super_admin") for r in roles) else "user"
+    role = _effective_global_role(user)
     return {
         "user_id": user.id,
-        "name": shared_user.name or user.name,
-        "email": shared_user.email or user.email,
+        "name": user.name,
+        "email": user.email,
         "role": role,
-        "hub_id": str(shared_user.id),
-        "is_super_admin": is_super_admin,
         "memberships": [],
     }, None
 
 
-def _sync_memberships_from_db(user, shared_user):
-    """Sync local Organization + OrgMember from shared DB."""
-    from .models import (
-        AmplexOrganization,
-        AmplexOrgMember,
-        SharedMembership,
-        SharedOrganization,
-    )
-
-    for m in SharedMembership.objects.filter(user_id=shared_user.id):
-        shared_org = SharedOrganization.objects.filter(id=m.organization_id).first()
-        if not shared_org:
-            continue
-        if not (shared_org.active_products or {}).get("amplex"):
-            continue
-
-        org, _ = AmplexOrganization.objects.get_or_create(
-            hub_org_id=str(shared_org.id),
-            defaults={
-                "name": shared_org.name or shared_org.slug,
-                "slug": shared_org.slug,
-            },
-        )
-        if not org.slug:
-            org.slug = shared_org.slug
-            org.save(update_fields=["slug"])
-
-        role = (
-            "administrator"
-            if (m.role or "").lower() in ("admin", "administrator")
-            else "member"
-        )
-        try:
-            AmplexOrgMember.objects.get_or_create(
-                org=org, user=user, defaults={"role": role}
-            )
-        except IntegrityError:
-            # Concurrent /auth/me requests can attempt this insert at the same time.
-            continue
-
-
 def get_org_context(request, slug):
-    """Resolve organization and verify membership.
-
-    Returns (current_user_dict, org, None) or (None, None, JsonResponse).
-    """
+    """Resolve organization and verify membership."""
     from .models import AmplexOrganization, AmplexOrgMember
 
     current_user, error = get_current_user(request)
@@ -249,27 +132,24 @@ def get_org_context(request, slug):
             JsonResponse({"detail": "Organização não encontrada"}, status=404),
         )
 
-    if not current_user["is_super_admin"]:
-        membership = AmplexOrgMember.objects.filter(
-            org=org, user_id=current_user["user_id"]
-        ).first()
-        if not membership:
-            return (
-                None,
-                None,
-                JsonResponse({"detail": "Sem acesso a esta organização"}, status=403),
-            )
-        if membership.role in ("admin", "administrator"):
-            current_user["role"] = "admin"
-    else:
+    membership = AmplexOrgMember.objects.filter(
+        org=org, user_id=current_user["user_id"], active=True
+    ).first()
+    if not membership:
+        return (
+            None,
+            None,
+            JsonResponse({"detail": "Sem acesso a esta organização"}, status=403),
+        )
+
+    if membership.role == "admin":
         current_user["role"] = "admin"
+    else:
+        current_user["role"] = "user"
 
     current_user["org_id"] = org.id
     current_user["org_slug"] = org.slug
     return current_user, org, None
-
-
-# ── Decorators ───────────────────────────────────────────
 
 
 def login_required(view_func):
@@ -287,10 +167,7 @@ def login_required(view_func):
 
 
 def org_required(view_func):
-    """Decorator for views that need slug as first URL param.
-
-    Injects request.amplex_user and request.amplex_org.
-    """
+    """Org-scoped views: inject request.amplex_user and request.amplex_org."""
 
     @functools.wraps(view_func)
     def wrapper(request, slug, *args, **kwargs):
@@ -305,7 +182,7 @@ def org_required(view_func):
 
 
 def org_admin_required(view_func):
-    """Decorator: org_required + admin role check."""
+    """org_required + admin role on the resolved org."""
 
     @functools.wraps(view_func)
     def wrapper(request, slug, *args, **kwargs):
@@ -317,34 +194,5 @@ def org_admin_required(view_func):
         request.amplex_user = user
         request.amplex_org = org
         return view_func(request, slug, *args, **kwargs)
-
-    return wrapper
-
-
-def require_api_key(view_func):
-    """Decorator for S2S endpoints protected by X-Api-Key."""
-
-    @functools.wraps(view_func)
-    def wrapper(request, *args, **kwargs):
-        import hmac as _hmac
-
-        api_key = request.headers.get("X-Api-Key", "")
-        expected_keys = list(getattr(settings, "INTERNAL_API_KEYS", []) or [])
-        # Keep tests and runtime flexible if keys are patched dynamically.
-        for key_name in (
-            "HUB_API_KEY",
-            "DIRECTORY_API_KEY",
-            "NEXUS_API_KEY",
-            "ENTITY_API_KEY",
-        ):
-            value = getattr(settings, key_name, "")
-            if value and value not in expected_keys:
-                expected_keys.append(value)
-        if not expected_keys or not api_key:
-            return JsonResponse({"detail": "API key inválida"}, status=401)
-        for expected in expected_keys:
-            if _hmac.compare_digest(api_key, expected):
-                return view_func(request, *args, **kwargs)
-        return JsonResponse({"detail": "API key inválida"}, status=401)
 
     return wrapper

@@ -12,7 +12,6 @@ from .views import (
     dashboard,
     export,
     health_check,
-    hub_users,
     integrations,
     interactions,
     leads,
@@ -21,10 +20,8 @@ from .views import (
     orgs,
     permissions,
     pipeline,
-    s2s,
     sources,
     stages,
-    super_admin,
     tags,
     users,
 )
@@ -45,39 +42,18 @@ def _dispatch(**methods):
 
 
 urlpatterns = [
-    # Health
     path("health", health_check, name="health"),
-    # Auth
     path("auth/login", auth.login, name="auth-login"),
     path("auth/refresh", auth.refresh, name="auth-refresh"),
     path("auth/me", auth.me, name="auth-me"),
     path("auth/logout", auth.logout, name="auth-logout"),
-    # Config
     path("config", config.get_config, name="config"),
     path("id/<slug:slug>/crm/config", config.get_scoped_config, name="config-scoped"),
-    # Orgs (no org context)
     path(
         "orgs",
         _dispatch(GET=orgs.list_my_orgs, POST=orgs.create_org),
         name="orgs",
     ),
-    # S2S (API key protected, no org context)
-    path("metrics", s2s.metrics, name="s2s-metrics"),
-    path("opportunities", s2s.create_opportunity, name="s2s-opportunity"),
-    path(
-        "opportunities/<int:opp_id>",
-        s2s.get_opportunity,
-        name="s2s-opportunity-detail",
-    ),
-    path(
-        "opportunities/<int:opp_id>/stage",
-        s2s.update_opportunity_stage,
-        name="s2s-opportunity-stage",
-    ),
-    path("contacts/search", s2s.search_contacts, name="s2s-contacts-search"),
-    path("contacts/import", s2s.import_contacts, name="s2s-import-contacts"),
-    # === Org-scoped CRM routes ===
-    # Org management
     path("id/<slug:slug>/org/update", orgs.update_org, name="org-update"),
     path("id/<slug:slug>/org/members", orgs.list_members, name="org-members"),
     path("id/<slug:slug>/org/members/add", orgs.add_member, name="org-member-add"),
@@ -86,28 +62,6 @@ urlpatterns = [
         orgs.remove_member,
         name="org-member-remove",
     ),
-    # Hub users (admin proxy)
-    path(
-        "id/<slug:slug>/hub-users",
-        _dispatch(GET=hub_users.list_hub_users, POST=hub_users.create_hub_user),
-        name="hub-users",
-    ),
-    path(
-        "id/<slug:slug>/crm/hub/users",
-        _dispatch(GET=hub_users.list_hub_users, POST=hub_users.create_hub_user),
-        name="crm-hub-users",
-    ),
-    path(
-        "id/<slug:slug>/hub-users/<str:hub_user_id>",
-        _dispatch(PUT=hub_users.update_hub_user, DELETE=hub_users.deactivate_hub_user),
-        name="hub-users-detail",
-    ),
-    path(
-        "id/<slug:slug>/crm/hub/users/<str:hub_user_id>",
-        _dispatch(PUT=hub_users.update_hub_user, DELETE=hub_users.deactivate_hub_user),
-        name="crm-hub-users-detail",
-    ),
-    # Dashboard
     path("id/<slug:slug>/crm/dashboard", dashboard.dashboard, name="dashboard"),
     path(
         "id/<slug:slug>/crm/dashboard/advanced",
@@ -119,14 +73,7 @@ urlpatterns = [
         dashboard.next_contacts,
         name="dashboard-next-contacts",
     ),
-    path(
-        "id/<slug:slug>/crm/leads/next-contacts",
-        dashboard.next_contacts,
-        name="dashboard-next-contacts-legacy",
-    ),
-    # Pipeline
     path("id/<slug:slug>/crm/pipeline", pipeline.pipeline, name="pipeline"),
-    # Leads
     path(
         "id/<slug:slug>/crm/leads",
         _dispatch(GET=leads.list_leads, POST=leads.create_lead),
@@ -152,7 +99,6 @@ urlpatterns = [
         leads.mark_lead_lost,
         name="leads-lost",
     ),
-    # Contacts
     path(
         "id/<slug:slug>/crm/contacts",
         _dispatch(GET=contacts.list_contacts, POST=contacts.create_contact),
@@ -163,7 +109,6 @@ urlpatterns = [
         contacts.get_contact,
         name="contacts-detail",
     ),
-    # Interactions
     path(
         "id/<slug:slug>/crm/leads/<int:lead_id>/interactions",
         _dispatch(
@@ -172,7 +117,6 @@ urlpatterns = [
         ),
         name="interactions",
     ),
-    # Stages
     path(
         "id/<slug:slug>/crm/stages",
         _dispatch(GET=stages.list_stages, POST=stages.create_stage),
@@ -183,15 +127,12 @@ urlpatterns = [
         _dispatch(PUT=stages.update_stage, DELETE=stages.delete_stage),
         name="stages-detail",
     ),
-    # Tags
     path("id/<slug:slug>/crm/tags", tags.list_tags, name="tags"),
-    # Sources
     path(
         "id/<slug:slug>/crm/sources",
         _dispatch(GET=sources.list_sources, POST=sources.create_source),
         name="sources",
     ),
-    # Lost reasons
     path(
         "id/<slug:slug>/crm/lost-reasons",
         _dispatch(
@@ -204,9 +145,11 @@ urlpatterns = [
         lost_reasons.delete_lost_reason,
         name="lost-reasons-detail",
     ),
-    # Users
-    path("id/<slug:slug>/crm/users", users.list_users, name="users"),
-    # Custom fields
+    path(
+        "id/<slug:slug>/crm/users",
+        _dispatch(GET=users.list_users, POST=users.create_user),
+        name="users",
+    ),
     path(
         "id/<slug:slug>/crm/custom-fields",
         _dispatch(
@@ -222,7 +165,6 @@ urlpatterns = [
         ),
         name="custom-fields-detail",
     ),
-    # Lead custom field values
     path(
         "id/<slug:slug>/crm/leads/<int:lead_id>/custom-fields",
         _dispatch(
@@ -236,7 +178,6 @@ urlpatterns = [
         custom_fields.delete_lead_custom_field,
         name="lead-custom-fields-detail",
     ),
-    # Attachments
     path(
         "id/<slug:slug>/crm/leads/<int:lead_id>/attachments",
         _dispatch(
@@ -258,14 +199,12 @@ urlpatterns = [
         attachments.download_attachment,
         name="attachments-download",
     ),
-    # Export
     path("id/<slug:slug>/crm/export/leads", export.export_leads, name="export-leads"),
     path(
         "id/<slug:slug>/crm/export/contacts",
         export.export_contacts,
         name="export-contacts",
     ),
-    # Permissions
     path(
         "id/<slug:slug>/crm/permissions",
         permissions.list_permissions,
@@ -282,17 +221,6 @@ urlpatterns = [
         name="permissions-detail",
     ),
     path(
-        "id/<slug:slug>/permissions/users",
-        permissions.list_permissions,
-        name="permissions-legacy",
-    ),
-    path(
-        "id/<slug:slug>/permissions/users/<int:user_id>",
-        permissions.update_permission,
-        name="permissions-detail-legacy",
-    ),
-    # Notifications
-    path(
         "id/<slug:slug>/crm/notifications",
         notifications.list_notifications,
         name="notifications",
@@ -307,7 +235,6 @@ urlpatterns = [
         notifications.dismiss_notification,
         name="notifications-dismiss",
     ),
-    # Integrations
     path(
         "id/<slug:slug>/crm/integrations",
         integrations.get_integrations,
@@ -332,15 +259,5 @@ urlpatterns = [
         "id/<slug:slug>/crm/integrations/search-lead",
         integrations.search_lead,
         name="integrations-search",
-    ),
-    # Super-admin (platform scoped)
-    path("super-admin/overview", super_admin.overview, name="super-admin-overview"),
-    path(
-        "super-admin/organizations", super_admin.organizations, name="super-admin-orgs"
-    ),
-    path(
-        "super-admin/organizations/<slug:slug>/quotas",
-        super_admin.organization_quotas,
-        name="super-admin-org-quotas",
     ),
 ]
