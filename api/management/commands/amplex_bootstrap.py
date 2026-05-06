@@ -25,6 +25,7 @@ class Command(BaseCommand):
         name = (os.getenv("AMPLEX_ADMIN_NAME") or "Admin").strip() or "Admin"
         org_name = (os.getenv("AMPLEX_DEFAULT_ORG_NAME") or "").strip()
         org_slug = (os.getenv("AMPLEX_DEFAULT_ORG_SLUG") or "").strip().lower()
+        seat_limit_raw = os.getenv("AMPLEX_DEFAULT_ORG_SEAT_LIMIT", "0")
 
         if not email or not password:
             self.stdout.write(
@@ -46,7 +47,8 @@ class Command(BaseCommand):
         if not created:
             user.name = name
             user.password_hash = make_password(password)
-            user.save(update_fields=["name", "password_hash"])
+        user.is_super_admin = True
+        user.save(update_fields=["name", "password_hash", "is_super_admin"])
 
         self.stdout.write(self.style.SUCCESS(f"User OK: {email}"))
 
@@ -54,13 +56,19 @@ class Command(BaseCommand):
             self.stdout.write("No default org (AMPLEX_DEFAULT_ORG_* unset)")
             return
 
+        try:
+            seat_limit = max(int(seat_limit_raw), 0)
+        except ValueError:
+            seat_limit = 0
+
         org, org_created = AmplexOrganization.objects.get_or_create(
             slug=org_slug,
-            defaults={"name": org_name},
+            defaults={"name": org_name, "seat_limit": seat_limit},
         )
-        if not org_created and org.name != org_name:
+        if not org_created and (org.name != org_name or org.seat_limit != seat_limit):
             org.name = org_name
-            org.save(update_fields=["name"])
+            org.seat_limit = seat_limit
+            org.save(update_fields=["name", "seat_limit"])
 
         AmplexOrgMember.objects.get_or_create(
             org=org, user=user, defaults={"role": "admin"}

@@ -4,6 +4,9 @@ from django.urls import path
 from django.views.decorators.http import require_http_methods
 
 from .views import (
+    admin as admin_views,
+)
+from .views import (
     attachments,
     auth,
     config,
@@ -47,6 +50,18 @@ urlpatterns = [
     path("auth/refresh", auth.refresh, name="auth-refresh"),
     path("auth/me", auth.me, name="auth-me"),
     path("auth/logout", auth.logout, name="auth-logout"),
+    path("admin/overview", admin_views.overview, name="admin-overview"),
+    path("admin/orgs", admin_views.list_orgs, name="admin-orgs"),
+    path("admin/orgs/<int:org_id>", admin_views.update_org, name="admin-org-update"),
+    path(
+        "admin/orgs/<int:org_id>/members",
+        admin_views.add_org_member,
+        name="admin-org-member-add",
+    ),
+    path("admin/users", admin_views.list_users, name="admin-users"),
+    path(
+        "admin/users/<int:user_id>", admin_views.update_user, name="admin-user-update"
+    ),
     path("config", config.get_config, name="config"),
     path("id/<slug:slug>/crm/config", config.get_scoped_config, name="config-scoped"),
     path(

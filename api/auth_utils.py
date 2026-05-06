@@ -63,6 +63,8 @@ def clear_auth_cookies(response):
 def _effective_global_role(user):
     from .models import AmplexOrgMember
 
+    if user.is_super_admin:
+        return "super_admin"
     if AmplexOrgMember.objects.filter(user=user, active=True, role="admin").exists():
         return "admin"
     return "user"
@@ -112,6 +114,7 @@ def get_current_user(request):
         "name": user.name,
         "email": user.email,
         "role": role,
+        "is_super_admin": user.is_super_admin,
         "memberships": [],
     }, None
 
@@ -132,20 +135,23 @@ def get_org_context(request, slug):
             JsonResponse({"detail": "Organização não encontrada"}, status=404),
         )
 
-    membership = AmplexOrgMember.objects.filter(
-        org=org, user_id=current_user["user_id"], active=True
-    ).first()
-    if not membership:
-        return (
-            None,
-            None,
-            JsonResponse({"detail": "Sem acesso a esta organização"}, status=403),
-        )
-
-    if membership.role == "admin":
-        current_user["role"] = "admin"
+    if current_user.get("is_super_admin"):
+        current_user["role"] = "super_admin"
     else:
-        current_user["role"] = "user"
+        membership = AmplexOrgMember.objects.filter(
+            org=org, user_id=current_user["user_id"], active=True
+        ).first()
+        if not membership:
+            return (
+                None,
+                None,
+                JsonResponse({"detail": "Sem acesso a esta organização"}, status=403),
+            )
+
+        if membership.role == "admin":
+            current_user["role"] = "admin"
+        else:
+            current_user["role"] = "user"
 
     current_user["org_id"] = org.id
     current_user["org_slug"] = org.slug
@@ -189,10 +195,26 @@ def org_admin_required(view_func):
         user, org, error = get_org_context(request, slug)
         if error:
             return error
-        if user["role"] != "admin":
+        if user["role"] not in ("admin", "super_admin"):
             return JsonResponse({"detail": "Permissão negada"}, status=403)
         request.amplex_user = user
         request.amplex_org = org
         return view_func(request, slug, *args, **kwargs)
+
+    return wrapper
+
+
+def super_admin_required(view_func):
+    """Global admin endpoints protected by super-admin role."""
+
+    @functools.wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        user, error = get_current_user(request)
+        if error:
+            return error
+        if not user.get("is_super_admin"):
+            return JsonResponse({"detail": "Permissão negada"}, status=403)
+        request.amplex_user = user
+        return view_func(request, *args, **kwargs)
 
     return wrapper

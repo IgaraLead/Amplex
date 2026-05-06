@@ -59,13 +59,14 @@ def make_lead(*, org, name="Test Lead", stage=None, user=None, contact=None):
     )
 
 
-def mock_user_dict(user, role="admin", org=None):
+def mock_user_dict(user, role="admin", org=None, is_super_admin=False):
     """Build the dict that get_current_user returns."""
     return {
         "user_id": user.id,
         "name": user.name,
         "email": user.email,
         "role": role,
+        "is_super_admin": is_super_admin,
         "memberships": [],
     }
 

@@ -9,6 +9,7 @@ from django.views.decorators.http import require_http_methods
 
 from api.auth_utils import login_required, org_admin_required, org_required
 from api.models import AmplexOrganization, AmplexOrgMember, AmplexUser, Stage
+from api.seat_limits import validate_seat_available
 
 DEFAULT_STAGES = [
     ("Novo", 1, False),
@@ -146,13 +147,27 @@ def add_member(request, slug):
     if not u:
         return JsonResponse({"detail": "User not found"}, status=404)
 
-    member, created = AmplexOrgMember.objects.get_or_create(
-        org=org, user=u, defaults={"role": role}
-    )
-    if not created and not member.active:
+    member = AmplexOrgMember.objects.filter(org=org, user=u).first()
+    if not member:
+        has_seat, message = validate_seat_available(org)
+        if not has_seat:
+            return JsonResponse({"detail": message}, status=409)
+        member = AmplexOrgMember.objects.create(org=org, user=u, role=role)
+        created = True
+    elif not member.active:
+        has_seat, message = validate_seat_available(org)
+        if not has_seat:
+            return JsonResponse({"detail": message}, status=409)
         member.active = True
         member.role = role
         member.save(update_fields=["active", "role"])
+        created = False
+    elif member.role != role:
+        member.role = role
+        member.save(update_fields=["role"])
+        created = False
+    else:
+        created = False
 
     return JsonResponse(
         {"user_id": u.id, "name": u.name, "role": member.role},

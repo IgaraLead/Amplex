@@ -91,6 +91,7 @@ def me(request):
             "name": user["name"],
             "email": user["email"],
             "role": user["role"],
+            "is_super_admin": user.get("is_super_admin", False),
             "organizations": orgs,
         }
     )

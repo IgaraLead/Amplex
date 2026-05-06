@@ -82,11 +82,11 @@ npx tsc --noEmit                                 # Typecheck
 
 ## Conventions
 
-- **Auth**: Login em **`AmplexUser`** (hash Django); sessão JWT em cookies + CSRF em `amplex_csrf`.
+- **Auth**: Login em **`AmplexUser`** (hash Django); sessão JWT em cookies + CSRF em `amplex_csrf`. Papel global opcional: `is_super_admin`.
 - **Health check**: `GET /amplex/api/health`
 - **Database**: PostgreSQL dedicado ao Amplex (`POSTGRES_DATABASE`, default `amplex`). Não usar a mesma instância/tabelas que outros produtos.
 - API endpoints: all under `/amplex/api/` prefix (dev proxy in Vite config)
-- Frontend routes: `/login`, `/orgs`, `/id/:slug/{dashboard,pipeline,leads,contacts,settings}`
+- Frontend routes: `/login`, `/orgs`, `/admin`, `/id/:slug/{dashboard,pipeline,leads,contacts,settings}`
 - **Tests**: pytest-django with `DJANGO_SETTINGS_MODULE=amplex.settings_test` (SQLite)
 
 ## Post-Change Verification (MANDATORY)

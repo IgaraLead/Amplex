@@ -14,6 +14,7 @@ import uuid
 from django.conf import settings
 from django.core.cache import cache
 from django.http import JsonResponse
+from redis.exceptions import RedisError
 
 logger = logging.getLogger("amplex")
 _SLUG_PATH_RE = re.compile(r"/id/([^/]+)/")
@@ -93,8 +94,8 @@ def _is_rate_limited(prefix, ip, limit):
             cache.set(key, 1, timeout=window)
         else:
             cache.incr(key)
-    except (ConnectionError, OSError, ValueError):
-        pass
+    except (ConnectionError, OSError, ValueError, RedisError):
+        logger.warning("Rate-limit cache unavailable key=%s", key)
     return False
 
 

@@ -9,6 +9,7 @@ from django.db import models
 class AmplexOrganization(models.Model):
     name = models.CharField(max_length=255)
     slug = models.CharField(max_length=100, unique=True, db_index=True, default="")
+    seat_limit = models.PositiveIntegerField(default=5)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -26,6 +27,7 @@ class AmplexUser(models.Model):
     login = models.CharField(max_length=255, unique=True, db_index=True)
     password_hash = models.CharField(max_length=255, blank=True, default="")
     active = models.BooleanField(default=True)
+    is_super_admin = models.BooleanField(default=False)
     is_internal = models.BooleanField(default=True)
     permissions = models.JSONField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
