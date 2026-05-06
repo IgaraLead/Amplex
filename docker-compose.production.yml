@@ -24,17 +24,12 @@ services:
         max-size: "20m"
         max-file: "5"
     ports:
-      - "8002:8000"
+      - "127.0.0.1:8002:8000"
     env_file:
       - path: stack.env
         required: false
     environment:
       ENVIRONMENT: production
-      AMPLEX_ADMIN_EMAIL: ${AMPLEX_ADMIN_EMAIL:-admin@dev.local}
-      AMPLEX_ADMIN_PASSWORD: ${AMPLEX_ADMIN_PASSWORD:-admin123}
-      AMPLEX_ADMIN_NAME: ${AMPLEX_ADMIN_NAME:-Admin}
-      AMPLEX_DEFAULT_ORG_NAME: ${AMPLEX_DEFAULT_ORG_NAME:-Dev Org}
-      AMPLEX_DEFAULT_ORG_SLUG: ${AMPLEX_DEFAULT_ORG_SLUG:-dev}
     networks:
       - igaralead_public
 

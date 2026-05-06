@@ -55,7 +55,6 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.staticfiles",
     "corsheaders",
-    "channels",
     "api",
 ]
 
@@ -75,9 +74,8 @@ ROOT_URLCONF = "amplex.urls"
 TEMPLATES = []
 
 WSGI_APPLICATION = "amplex.wsgi.application"
-ASGI_APPLICATION = "amplex.asgi.application"
 
-# ── Database (unified igaralead DB) ─────────────────────
+# ── Database (Amplex standalone) ─────────────────────────
 
 _PG_USER = os.getenv("POSTGRES_USERNAME", "postgres")
 _PG_PASS = os.getenv("POSTGRES_PASSWORD", "postgres")
@@ -112,31 +110,6 @@ REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
 _REDIS_AUTH = f":{REDIS_PASSWORD}@" if REDIS_PASSWORD else ""
 REDIS_URL = os.getenv("REDIS_URL", f"redis://{_REDIS_AUTH}localhost:6379/3")
 
-
-def _channel_layer_redis_url() -> str:
-    """Redis URL for Channels (separate DB index from Django cache when possible)."""
-    explicit = os.getenv("REDIS_CHANNEL_URL", "").strip()
-    if explicit:
-        return explicit
-    u = REDIS_URL.rstrip("/")
-    parts = u.rsplit("/", 1)
-    if len(parts) == 2 and parts[1].isdigit():
-        return f"{parts[0]}/{int(parts[1]) + 1}"
-    return f"{u}/4"
-
-
-if ENVIRONMENT == "test":
-    CHANNEL_LAYERS = {
-        "default": {"BACKEND": "channels.layers.InMemoryChannelLayer"},
-    }
-else:
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {"hosts": [_channel_layer_redis_url()]},
-        },
-    }
-
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
@@ -163,11 +136,7 @@ PASSWORD_HASHERS = [
 
 # ── CORS ─────────────────────────────────────────────────
 
-from api.ecosystem import product_url as _product_url  # noqa: E402
-
-FRONTEND_URL = os.getenv(
-    "FRONTEND_URL", _product_url("amplex", "http://localhost:5173")
-)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 CORS_ALLOWED_ORIGINS = [
     o.strip()
     for o in os.getenv("AMPLEX_CORS_ORIGINS", FRONTEND_URL).split(",")
@@ -201,40 +170,6 @@ SESSION_EXPIRE_HOURS = int(os.getenv("AMPLEX_SESSION_EXPIRE_HOURS", "1"))
 REFRESH_EXPIRE_DAYS = int(os.getenv("AMPLEX_REFRESH_EXPIRE_DAYS", "30"))
 COOKIE_SECURE = ENVIRONMENT == "production"
 COOKIE_DOMAIN = os.getenv("COOKIE_DOMAIN", None)
-
-# Directory / control-plane (optional). HUB_* kept as fallback.
-HUB_URL = os.getenv("HUB_URL", _product_url("hub", "http://localhost:8001"))
-HUB_API_KEY = os.getenv("HUB_API_KEY", "")
-DIRECTORY_URL = os.getenv("DIRECTORY_URL") or HUB_URL
-DIRECTORY_API_KEY = os.getenv("DIRECTORY_API_KEY") or HUB_API_KEY
-
-# Nexus integration
-NEXUS_URL = os.getenv("NEXUS_URL", _product_url("nexus", "http://localhost:3000"))
-NEXUS_API_KEY = os.getenv("NEXUS_API_KEY", HUB_API_KEY)
-
-# Entity integration
-ENTITY_URL = os.getenv("ENTITY_URL", _product_url("entity", "http://localhost:3002"))
-ENTITY_API_KEY = os.getenv("ENTITY_API_KEY", HUB_API_KEY)
-_INTERNAL_KEY_LIST = [
-    k for k in (HUB_API_KEY, DIRECTORY_API_KEY, NEXUS_API_KEY, ENTITY_API_KEY) if k
-]
-INTERNAL_API_KEYS = list(dict.fromkeys(_INTERNAL_KEY_LIST))
-
-if ENVIRONMENT == "production":
-    _integration_required = {
-        "HUB_URL": HUB_URL,
-        "HUB_API_KEY": HUB_API_KEY,
-        "NEXUS_URL": NEXUS_URL,
-        "NEXUS_API_KEY": NEXUS_API_KEY,
-        "ENTITY_URL": ENTITY_URL,
-        "ENTITY_API_KEY": ENTITY_API_KEY,
-    }
-    _missing_integrations = [k for k, v in _integration_required.items() if not v]
-    if _missing_integrations:
-        raise RuntimeError(
-            "Production requires integration env vars: "
-            + ", ".join(_missing_integrations)
-        )
 
 # Storage / MinIO
 STORAGE_ENDPOINT = os.getenv("STORAGE_ENDPOINT", "http://minio:9000")

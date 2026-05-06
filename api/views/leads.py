@@ -8,7 +8,6 @@ from django.views.decorators.http import require_http_methods
 
 from api.auth_utils import org_admin_required, org_required
 from api.models import AmplexUser, Contact, Interaction, Lead, LostReason, Stage, Tag
-from api.realtime import broadcast_leads_updated
 
 from .permissions import get_user_permission
 
@@ -152,7 +151,6 @@ def create_lead(request, slug):
             lead.contact = contact
 
     lead.save()
-    broadcast_leads_updated(org.slug, lead_id=lead.id)
     return JsonResponse(
         {
             "id": lead.id,
@@ -275,7 +273,6 @@ def update_lead(request, slug, lead_id):
         tag_objs = Tag.objects.filter(id__in=body["tag_ids"], org=org)
         lead.tags.set(tag_objs)
 
-    broadcast_leads_updated(org.slug, lead_id=lead.id)
     return JsonResponse(
         {
             "id": lead.id,
@@ -299,7 +296,6 @@ def delete_lead(request, slug, lead_id):
 
     lead.active = False
     lead.save(update_fields=["active"])
-    broadcast_leads_updated(org.slug, lead_id=lead.id)
     return JsonResponse({"id": lead.id, "archived": True})
 
 
@@ -322,7 +318,6 @@ def move_lead(request, slug, lead_id):
 
     lead.stage = stage
     lead.save(update_fields=["stage_id"])
-    broadcast_leads_updated(org.slug, lead_id=lead.id)
     return JsonResponse(
         {
             "id": lead.id,
@@ -367,7 +362,6 @@ def transfer_lead(request, slug, lead_id):
         author_id=user["user_id"],
     )
 
-    broadcast_leads_updated(org.slug, lead_id=lead.id)
     return JsonResponse(
         {"id": lead.id, "user_id": new_user.id, "user_name": new_user.name}
     )
@@ -403,5 +397,4 @@ def mark_lead_lost(request, slug, lead_id):
         author_id=user["user_id"],
     )
 
-    broadcast_leads_updated(org.slug, lead_id=lead.id)
     return JsonResponse({"id": lead.id, "lost": True, "reason": reason.name})

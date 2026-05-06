@@ -3,9 +3,8 @@ import { Outlet, NavLink, Navigate, useNavigate, useParams } from 'react-router-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/shared/store';
 import { apiGet, apiPost, apiDelete } from '@/shared/api';
-import { useOrgRealtime } from '@/shared/useOrgRealtime';
 import Logo from '@/shared/ui/Logo';
-import { BRAND_NAME, BRAND_URL } from '@/shared/branding';
+import { BRAND_NAME, BRAND_URL, AMPLEX_NAME } from '@/shared/branding';
 import { Check, X, Bell, Menu } from 'lucide-react';
 
 interface NavItem {
@@ -105,8 +104,6 @@ export default function AppLayout() {
 
   const orgBase = slug ? `/id/${slug}` : '';
 
-  useOrgRealtime(slug);
-
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
@@ -176,11 +173,15 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen bg-base-100">
-      <header className="fixed inset-x-0 top-0 z-40 h-[60px] border-b border-white/[0.05] bg-base-100 px-6">
-        <div className="mx-auto flex h-full max-w-[1040px] items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Logo size={24} />
-            <span className="brand-text text-sm leading-none tracking-tight">IgaraLead</span>
+      <header className="fixed inset-x-0 top-0 z-40 h-[60px] border-b border-white/[0.05] bg-base-100/95 px-6 backdrop-blur-sm">
+        <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Logo size={28} />
+            </div>
+            <span className="rounded-xl border border-white/[0.12] bg-white/[0.08] px-3 py-1.5 text-sm font-medium text-base-content">
+              {AMPLEX_NAME}
+            </span>
           </div>
 
           <div className="relative flex items-center gap-2" ref={notifRef}>

@@ -4,7 +4,6 @@ import { apiFetch, setApiOrgSlug } from './api';
 interface UserOrg {
   id: number;
   slug: string;
-  hub_org_id: string;
   name: string;
   role: string;
 }
@@ -14,8 +13,6 @@ interface User {
   name: string;
   email: string;
   role: string;
-  is_super_admin?: boolean;
-  hub_id?: string;
   organizations?: UserOrg[];
 }
 

@@ -1,11 +1,7 @@
 """
-Multi-database router for Amplex.
+Database router for Amplex.
 
-Amplex uses a single database (igaralead) with two kinds of tables:
-  - Amplex-owned tables (amplex_*) — fully managed
-  - Hub shared tables (organizations, users, etc.) — managed=False
-
-Auth/contenttypes are installed for utility functions only — no tables needed.
+Single-database MVP; skip migrating Django contrib auth/contenttypes tables.
 """
 
 

@@ -1,89 +1,14 @@
 """Django ORM models for Amplex CRM.
 
-Amplex-owned tables use db_table="amplex_*" to coexist in the shared
-igaralead database. Hub shared tables use managed=False.
+Amplex-owned tables use db_table=\"amplex_*\". MVP standalone — single product database.
 """
 
 from django.db import models
 
-# ══════════════════════════════════════════════════════════
-#  Hub shared tables (read-only, managed=False)
-# ══════════════════════════════════════════════════════════
-
-
-class SharedOrganization(models.Model):
-    id = models.UUIDField(primary_key=True)
-    name = models.CharField(max_length=200)
-    slug = models.CharField(max_length=100, unique=True)
-    cnpj = models.CharField(max_length=18, blank=True, null=True)
-    active_products = models.JSONField(default=dict)
-    settings = models.JSONField(default=dict)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        managed = False
-        db_table = "organizations"
-
-
-class SharedUser(models.Model):
-    id = models.UUIDField(primary_key=True)
-    email = models.EmailField(max_length=255, unique=True)
-    name = models.CharField(max_length=200)
-    password_hash = models.CharField(max_length=255)
-    roles = models.JSONField(default=list)
-    active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        managed = False
-        db_table = "users"
-
-
-class SharedMembership(models.Model):
-    organization_id = models.UUIDField()
-    user_id = models.UUIDField()
-    role = models.CharField(max_length=30, default="member")
-    platform_roles = models.JSONField(default=dict)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        managed = False
-        db_table = "org_members"
-
-
-class SharedSubscription(models.Model):
-    organization_id = models.UUIDField()
-    plan_id = models.IntegerField(null=True, blank=True)
-    amplex_users = models.IntegerField(default=0)
-    nexus_users = models.IntegerField(default=0)
-    nexus_channels = models.IntegerField(default=0)
-    entity_credit_tier = models.CharField(max_length=20, blank=True, null=True)
-    entity_credits = models.IntegerField(default=0)
-    base_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    final_price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    status = models.CharField(max_length=20, default="active")
-    started_at = models.DateTimeField(auto_now_add=True)
-    expires_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        managed = False
-        db_table = "subscriptions"
-
-
-# ══════════════════════════════════════════════════════════
-#  Amplex-owned tables (amplex_* prefix)
-# ══════════════════════════════════════════════════════════
-
 
 class AmplexOrganization(models.Model):
-    hub_org_id = models.CharField(max_length=64, unique=True, db_index=True)
     name = models.CharField(max_length=255)
     slug = models.CharField(max_length=100, unique=True, db_index=True, default="")
-    platform_quotas = models.JSONField(default=dict, blank=True)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -96,16 +21,13 @@ class AmplexOrganization(models.Model):
 
 
 class AmplexUser(models.Model):
-    hub_id = models.CharField(max_length=64, unique=True, null=True, db_index=True)
     name = models.CharField(max_length=255)
     email = models.EmailField(max_length=255, unique=True, db_index=True)
     login = models.CharField(max_length=255, unique=True, db_index=True)
     password_hash = models.CharField(max_length=255, blank=True, default="")
-    is_platform_super_admin = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
     is_internal = models.BooleanField(default=True)
     permissions = models.JSONField(null=True, blank=True)
-    hub_synced_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -136,7 +58,6 @@ class Contact(models.Model):
     org = models.ForeignKey(
         AmplexOrganization, on_delete=models.CASCADE, related_name="contacts"
     )
-    hub_id = models.CharField(max_length=64, null=True, blank=True, db_index=True)
     name = models.CharField(max_length=255)
     email = models.EmailField(max_length=255, null=True, blank=True, db_index=True)
     phone = models.CharField(max_length=64, null=True, blank=True)
@@ -151,7 +72,6 @@ class Contact(models.Model):
     website = models.CharField(max_length=255, null=True, blank=True)
     comment = models.TextField(null=True, blank=True)
     active = models.BooleanField(default=True)
-    hub_synced_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

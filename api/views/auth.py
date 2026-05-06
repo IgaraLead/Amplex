@@ -1,22 +1,18 @@
 """Auth routes — login, refresh, user info, and logout."""
 
 import json
-import logging
 
 from django.contrib.auth.hashers import check_password
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
-from api.access_tokens import (
-    AUTH_KIND_AMPLEX_LOCAL,
+from api.auth_utils import clear_auth_cookies, login_required, set_auth_cookies
+from api.models import AmplexOrgMember, AmplexUser
+from api.tokens import (
     create_access_token,
     create_refresh_token,
     decode_refresh_token,
 )
-from api.auth_utils import clear_auth_cookies, login_required, set_auth_cookies
-from api.models import AmplexOrgMember, AmplexUser
-
-logger = logging.getLogger(__name__)
 
 
 @require_http_methods(["POST"])
@@ -27,28 +23,18 @@ def login(request):
     if not email or not password:
         return JsonResponse({"error": "E-mail e senha são obrigatórios"}, status=400)
 
-    au = AmplexUser.objects.filter(email=email, active=True).first()
-    if (
-        au
-        and au.password_hash
-        and au.password_hash not in ("!",)
-        and check_password(password, au.password_hash)
-    ):
-        if (
-            not au.is_platform_super_admin
-            and not AmplexOrgMember.objects.filter(user=au, active=True).exists()
-        ):
-            return JsonResponse(
-                {"error": "Sua organização não possui acesso ao Amplex"},
-                status=403,
-            )
-        access_token = create_access_token(str(au.id), auth_kind=AUTH_KIND_AMPLEX_LOCAL)
-        refresh_token = create_refresh_token(au, AUTH_KIND_AMPLEX_LOCAL)
-        response = JsonResponse({"access_token": access_token, "token_type": "bearer"})
-        set_auth_cookies(response, access_token, refresh_token)
-        return response
+    user = AmplexUser.objects.filter(email=email).first()
+    if not user or not user.active:
+        return JsonResponse({"error": "Credenciais inválidas"}, status=401)
 
-    return JsonResponse({"error": "Credenciais inválidas"}, status=401)
+    if not user.password_hash or not check_password(password, user.password_hash):
+        return JsonResponse({"error": "Credenciais inválidas"}, status=401)
+
+    access_token = create_access_token(str(user.id))
+    refresh_token = create_refresh_token(user)
+    response = JsonResponse({"access_token": access_token, "token_type": "bearer"})
+    set_auth_cookies(response, access_token, refresh_token)
+    return response
 
 
 @require_http_methods(["POST"])
@@ -62,23 +48,18 @@ def refresh(request):
     except ValueError:
         return JsonResponse({"error": "Refresh token inválido"}, status=401)
 
-    auth_kind = claims.get("auth_kind", AUTH_KIND_AMPLEX_LOCAL)
-    sub = claims.get("sub")
-
-    if auth_kind != AUTH_KIND_AMPLEX_LOCAL:
-        return JsonResponse({"error": "Refresh token inválido"}, status=401)
-
+    raw_sub = claims.get("sub")
     try:
-        aid = int(sub)
+        refresh_uid = int(raw_sub)
     except (TypeError, ValueError):
         return JsonResponse({"error": "Refresh token inválido"}, status=401)
 
-    au = AmplexUser.objects.filter(id=aid, active=True).first()
-    if not au:
+    user = AmplexUser.objects.filter(id=refresh_uid).first()
+    if not user or not user.active:
         return JsonResponse({"error": "Usuário não encontrado"}, status=401)
 
-    access_token = create_access_token(str(au.id), auth_kind=AUTH_KIND_AMPLEX_LOCAL)
-    new_refresh = create_refresh_token(au, AUTH_KIND_AMPLEX_LOCAL)
+    access_token = create_access_token(str(user.id))
+    new_refresh = create_refresh_token(user)
     response = JsonResponse({"access_token": access_token, "token_type": "bearer"})
     set_auth_cookies(response, access_token, new_refresh)
     return response
@@ -89,7 +70,7 @@ def refresh(request):
 def me(request):
     user = request.amplex_user
     memberships = AmplexOrgMember.objects.filter(
-        user_id=user["user_id"]
+        user_id=user["user_id"], active=True
     ).select_related("org")
 
     orgs = []
@@ -99,7 +80,6 @@ def me(request):
                 {
                     "id": m.org.id,
                     "slug": m.org.slug,
-                    "hub_org_id": m.org.hub_org_id,
                     "name": m.org.name,
                     "role": m.role,
                 }
@@ -111,8 +91,6 @@ def me(request):
             "name": user["name"],
             "email": user["email"],
             "role": user["role"],
-            "is_super_admin": user["is_super_admin"],
-            "hub_id": user["hub_id"],
             "organizations": orgs,
         }
     )

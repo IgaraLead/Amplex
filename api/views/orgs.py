@@ -2,6 +2,7 @@
 
 import json
 import re
+import uuid
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
@@ -52,12 +53,14 @@ def create_org(request):
         return JsonResponse({"detail": "name is required"}, status=400)
 
     slug = (body.get("slug") or "").strip().lower()
-    if slug and not re.match(r"^[a-z0-9][a-z0-9_-]{1,48}[a-z0-9]$", slug):
+    if not slug:
+        slug = f"org-{uuid.uuid4().hex[:12]}"
+    if not re.match(r"^[a-z0-9][a-z0-9_-]{1,48}[a-z0-9]$", slug):
         return JsonResponse(
             {"detail": "Slug inválido (3-50 chars, alfanumérico, - ou _)"},
             status=400,
         )
-    if slug and AmplexOrganization.objects.filter(slug=slug).exists():
+    if AmplexOrganization.objects.filter(slug=slug).exists():
         return JsonResponse({"detail": "Slug já em uso"}, status=409)
 
     org = AmplexOrganization.objects.create(name=name, slug=slug)
@@ -119,7 +122,7 @@ def list_members(request, slug):
                     "name": m.user.name,
                     "email": m.user.email,
                     "role": m.role,
-                    "avatar_url": m.user.avatar_url or "",
+                    "avatar_url": "",
                 }
                 for m in members
                 if m.user.active

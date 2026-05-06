@@ -17,6 +17,9 @@ function resolveOrgPath(path: string): string {
   if (path.startsWith('/crm/') || path === '/crm') {
     return `/id/${_slug}${path}`;
   }
+  if (path.startsWith('/org/')) {
+    return `/id/${_slug}${path}`;
+  }
   if (path.startsWith('/permissions/') || path === '/permissions') {
     return `/id/${_slug}/crm${path}`;
   }
@@ -74,10 +77,6 @@ export function apiGet<T = unknown>(path: string) {
 
 export function apiPost<T = unknown>(path: string, body: unknown) {
   return apiFetch<T>(path, { method: 'POST', body: JSON.stringify(body) });
-}
-
-export function apiPatch<T = unknown>(path: string, body: unknown) {
-  return apiFetch<T>(path, { method: 'PATCH', body: JSON.stringify(body) });
 }
 
 export function apiPut<T = unknown>(path: string, body: unknown) {

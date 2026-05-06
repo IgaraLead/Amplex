@@ -463,17 +463,16 @@ function UsersTab({ addToast, queryClient }: { addToast: any; queryClient: any }
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'user' });
 
   const { data, isLoading } = useQuery<{
-    users?: Array<{ id: number; name: string; email: string; role?: string; is_active?: boolean }>;
+    items?: Array<{ id: number; name: string; email: string; role?: string }>;
   }>({
-    queryKey: ['hub-users'],
-    queryFn: () => apiGet('/crm/hub/users'),
+    queryKey: ['crm-users'],
+    queryFn: () => apiGet('/crm/users'),
   });
 
   const createMutation = useMutation({
-    mutationFn: (body: typeof newUser) => apiPost('/crm/hub/users', body),
+    mutationFn: (body: typeof newUser) => apiPost('/crm/users', body),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hub-users'] });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-users'] });
       setShowCreate(false);
       setNewUser({ name: '', email: '', password: '', role: 'user' });
       addToast('Usuário criado', 'success');
@@ -482,22 +481,21 @@ function UsersTab({ addToast, queryClient }: { addToast: any; queryClient: any }
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiDelete(`/crm/hub/users/${id}`),
+    mutationFn: (id: number) => apiDelete(`/org/members/${id}/remove`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['hub-users'] });
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-users'] });
       addToast('Usuário desativado', 'success');
     },
     onError: (e: Error) => addToast(e.message, 'error'),
   });
 
-  const users = Array.isArray(data) ? data : data?.users || [];
+  const users = data?.items || [];
 
   return (
     <div className="card bg-base-300 max-w-2xl">
       <div className="card-body">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Gerenciar Usuários (Hub)</h3>
+          <h3 className="text-sm font-semibold">Membros da organização</h3>
           <button
             type="button"
             className="btn btn-primary btn-sm"
@@ -581,7 +579,7 @@ function UsersTab({ addToast, queryClient }: { addToast: any; queryClient: any }
                   <span className="ml-2 text-xs text-base-content/55">{u.email}</span>
                 </div>
                 <span className="badge badge-info badge-sm shrink-0 py-0 text-[0.7rem]">
-                  {u.role === 'admin' || u.role === 'super_admin' ? 'Gestor' : 'Vendedor'}
+                  {u.role === 'admin' ? 'Gestor' : 'Vendedor'}
                 </span>
                 <button
                   type="button"
