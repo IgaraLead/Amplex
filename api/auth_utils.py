@@ -5,9 +5,30 @@ Cookie-based JWT sessions and decorators for protecting views.
 """
 
 import functools
+import os
 import secrets
 
 from django.http import JsonResponse
+
+
+def _enforce_bootstrap_super_admin():
+    from .models import AmplexUser
+
+    email = (os.getenv("AMPLEX_ADMIN_EMAIL") or "").strip().lower()
+    if not email:
+        return
+    user = AmplexUser.objects.filter(email=email).first()
+    if not user:
+        return
+    update_fields = []
+    if not user.active:
+        user.active = True
+        update_fields.append("active")
+    if not user.is_super_admin:
+        user.is_super_admin = True
+        update_fields.append("is_super_admin")
+    if update_fields:
+        user.save(update_fields=update_fields)
 
 
 def set_auth_cookies(response, access_token, refresh_token=""):
@@ -78,6 +99,7 @@ def get_current_user(request):
     from .models import AmplexUser
     from .tokens import decode_access_token
 
+    _enforce_bootstrap_super_admin()
     token = None
 
     auth_header = request.META.get("HTTP_AUTHORIZATION", "")

@@ -18,6 +18,7 @@ type AdminOrg = {
   seat_limit: number;
   active_members: number;
   available_seats: number;
+  is_default_org: boolean;
 };
 
 type AdminUserMembership = {
@@ -34,6 +35,7 @@ type AdminUser = {
   email: string;
   active: boolean;
   is_super_admin: boolean;
+  is_default_super_admin: boolean;
   memberships: AdminUserMembership[];
 };
 
@@ -43,6 +45,14 @@ export default function AdminPanel() {
   const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const [membershipRole, setMembershipRole] = useState('member');
+  const [newOrg, setNewOrg] = useState({ name: '', slug: '', seat_limit: 1 });
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    password: '',
+    role: 'agente',
+    org_id: '',
+  });
 
   const isAllowed = !!user?.is_super_admin;
 
@@ -101,6 +111,32 @@ export default function AdminPanel() {
       queryClient.invalidateQueries({ queryKey: ['admin-orgs'] });
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
       queryClient.invalidateQueries({ queryKey: ['admin-overview'] });
+    },
+  });
+
+  const createOrgMutation = useMutation({
+    mutationFn: (body: { name: string; slug: string; seat_limit: number }) =>
+      apiPost('/admin/orgs', body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-orgs'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-overview'] });
+      setNewOrg({ name: '', slug: '', seat_limit: 1 });
+    },
+  });
+
+  const createUserMutation = useMutation({
+    mutationFn: (body: {
+      name: string;
+      email: string;
+      password: string;
+      role: string;
+      org_id?: number;
+    }) => apiPost('/admin/users', body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-orgs'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-overview'] });
+      setNewUser({ name: '', email: '', password: '', role: 'agente', org_id: '' });
     },
   });
 
@@ -164,6 +200,44 @@ export default function AdminPanel() {
       <section className="card bg-base-300">
         <div className="card-body">
           <h2 className="text-sm font-semibold">Organizações</h2>
+          <form
+            className="mb-4 grid gap-2 rounded-lg border border-base-300 bg-base-200/40 p-3 md:grid-cols-4"
+            onSubmit={e => {
+              e.preventDefault();
+              if (!newOrg.name.trim() || !newOrg.slug.trim()) return;
+              createOrgMutation.mutate({
+                name: newOrg.name.trim(),
+                slug: newOrg.slug.trim().toLowerCase(),
+                seat_limit: Math.max(Number(newOrg.seat_limit) || 0, 0),
+              });
+            }}
+          >
+            <input
+              className="input input-sm"
+              placeholder="Nome da organização"
+              value={newOrg.name}
+              onChange={e => setNewOrg(prev => ({ ...prev, name: e.target.value }))}
+            />
+            <input
+              className="input input-sm"
+              placeholder="slug"
+              value={newOrg.slug}
+              onChange={e => setNewOrg(prev => ({ ...prev, slug: e.target.value }))}
+            />
+            <input
+              type="number"
+              min={0}
+              className="input input-sm"
+              placeholder="Seat limit"
+              value={newOrg.seat_limit}
+              onChange={e =>
+                setNewOrg(prev => ({ ...prev, seat_limit: Number(e.target.value) || 0 }))
+              }
+            />
+            <button className="btn btn-primary btn-sm" type="submit">
+              Nova organização
+            </button>
+          </form>
           <div className="overflow-x-auto">
             <table className="table table-sm">
               <thead>
@@ -183,12 +257,13 @@ export default function AdminPanel() {
                     <td>
                       <input
                         type="number"
-                        min={1}
+                        min={0}
                         className="input input-xs w-20"
                         defaultValue={org.seat_limit}
+                        disabled={org.is_default_org}
                         onBlur={e => {
                           const next = Number(e.target.value);
-                          if (!Number.isFinite(next) || next < 1 || next === org.seat_limit) return;
+                          if (!Number.isFinite(next) || next < 0 || next === org.seat_limit) return;
                           updateOrgMutation.mutate({
                             id: org.id,
                             body: { seat_limit: next },
@@ -197,12 +272,15 @@ export default function AdminPanel() {
                       />
                     </td>
                     <td>
-                      {org.active_members}/{org.seat_limit}
+                      {org.seat_limit === 0
+                        ? `${org.active_members}/Ilimitado`
+                        : `${org.active_members}/${org.seat_limit}`}
                     </td>
                     <td>
                       <button
                         type="button"
                         className="btn btn-xs"
+                        disabled={org.is_default_org}
                         onClick={() =>
                           updateOrgMutation.mutate({
                             id: org.id,
@@ -210,7 +288,7 @@ export default function AdminPanel() {
                           })
                         }
                       >
-                        {org.active ? 'Ativa' : 'Inativa'}
+                        {org.is_default_org ? 'Padrão' : org.active ? 'Ativa' : 'Inativa'}
                       </button>
                     </td>
                   </tr>
@@ -224,6 +302,78 @@ export default function AdminPanel() {
       <section className="card bg-base-300">
         <div className="card-body">
           <h2 className="text-sm font-semibold">Usuários Globais</h2>
+          <form
+            className="mb-4 grid gap-2 rounded-lg border border-base-300 bg-base-200/40 p-3 md:grid-cols-5"
+            onSubmit={e => {
+              e.preventDefault();
+              if (!newUser.email.trim() || !newUser.password.trim()) return;
+              const payload: {
+                name: string;
+                email: string;
+                password: string;
+                role: string;
+                org_id?: number;
+              } = {
+                name: newUser.name.trim() || newUser.email.split('@')[0],
+                email: newUser.email.trim().toLowerCase(),
+                password: newUser.password,
+                role: newUser.role,
+              };
+              if (newUser.role !== 'superadmin') {
+                if (!newUser.org_id) return;
+                payload.org_id = Number(newUser.org_id);
+              }
+              createUserMutation.mutate(payload);
+            }}
+          >
+            <input
+              className="input input-sm"
+              placeholder="Nome"
+              value={newUser.name}
+              onChange={e => setNewUser(prev => ({ ...prev, name: e.target.value }))}
+            />
+            <input
+              className="input input-sm"
+              placeholder="E-mail"
+              type="email"
+              value={newUser.email}
+              onChange={e => setNewUser(prev => ({ ...prev, email: e.target.value }))}
+            />
+            <input
+              className="input input-sm"
+              placeholder="Senha"
+              type="password"
+              value={newUser.password}
+              onChange={e => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+            />
+            <select
+              className="select select-sm"
+              value={newUser.role}
+              onChange={e => setNewUser(prev => ({ ...prev, role: e.target.value }))}
+            >
+              <option value="superadmin">superadmin</option>
+              <option value="admin">admin</option>
+              <option value="agente">agente</option>
+            </select>
+            <select
+              className="select select-sm"
+              value={newUser.org_id}
+              disabled={newUser.role === 'superadmin'}
+              onChange={e => setNewUser(prev => ({ ...prev, org_id: e.target.value }))}
+            >
+              <option value="">Org (obrigatória p/ admin/agente)</option>
+              {orgs
+                .filter(org => org.active)
+                .map(org => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+            </select>
+            <button className="btn btn-primary btn-sm md:col-span-5" type="submit">
+              Novo usuário
+            </button>
+          </form>
           <div className="overflow-x-auto">
             <table className="table table-sm">
               <thead>
@@ -244,6 +394,7 @@ export default function AdminPanel() {
                         type="checkbox"
                         className="checkbox checkbox-sm"
                         checked={u.is_super_admin}
+                        disabled={u.is_default_super_admin}
                         onChange={e =>
                           updateUserMutation.mutate({
                             id: u.id,
@@ -256,6 +407,7 @@ export default function AdminPanel() {
                       <button
                         type="button"
                         className="btn btn-xs"
+                        disabled={u.is_default_super_admin}
                         onClick={() =>
                           updateUserMutation.mutate({
                             id: u.id,
@@ -263,7 +415,7 @@ export default function AdminPanel() {
                           })
                         }
                       >
-                        {u.active ? 'Ativo' : 'Inativo'}
+                        {u.is_default_super_admin ? 'Padrão' : u.active ? 'Ativo' : 'Inativo'}
                       </button>
                     </td>
                   </tr>
