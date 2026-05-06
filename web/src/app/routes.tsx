@@ -10,6 +10,7 @@ const Leads = React.lazy(() => import('@/modules/leads/Leads'));
 const LeadDetail = React.lazy(() => import('@/modules/leads/LeadDetail'));
 const Contacts = React.lazy(() => import('@/modules/contacts/Contacts'));
 const Settings = React.lazy(() => import('@/modules/settings/Settings'));
+const AdminPanel = React.lazy(() => import('@/modules/admin/AdminPanel'));
 
 function RouteSuspense({ children }: { children: React.ReactNode }) {
   return (
@@ -37,6 +38,14 @@ export function AppRoutes() {
         element={
           <RouteSuspense>
             <OrgSelect />
+          </RouteSuspense>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <RouteSuspense>
+            <AdminPanel />
           </RouteSuspense>
         }
       />

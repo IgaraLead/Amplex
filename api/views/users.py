@@ -8,6 +8,7 @@ from django.views.decorators.http import require_http_methods
 
 from api.auth_utils import org_admin_required, org_required
 from api.models import AmplexOrgMember, AmplexUser
+from api.seat_limits import validate_seat_available
 
 
 @require_http_methods(["GET"])
@@ -58,6 +59,10 @@ def create_user(request, slug):
 
     if AmplexUser.objects.filter(email=email).exists():
         return JsonResponse({"detail": "E-mail já cadastrado"}, status=409)
+
+    has_seat, message = validate_seat_available(org)
+    if not has_seat:
+        return JsonResponse({"detail": message}, status=409)
 
     user = AmplexUser.objects.create(
         email=email,

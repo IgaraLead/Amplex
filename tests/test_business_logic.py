@@ -3,14 +3,18 @@ Business logic tests: CRUD, data isolation, pipeline, export security.
 """
 
 import json
+from unittest.mock import patch
 
 import pytest
 
 from .conftest import (
     make_contact,
     make_lead,
+    make_member,
     make_org,
     make_stage,
+    make_user,
+    mock_user_dict,
 )
 
 
@@ -197,3 +201,71 @@ class TestIntegrationsStandalone:
             content_type="application/json",
         )
         assert resp.status_code == 503
+
+
+@pytest.mark.django_db
+class TestGlobalAdminAndSeats:
+    def test_org_admin_cannot_access_global_admin_endpoints(self, client, admin_ctx):
+        resp = client.get("/amplex/api/admin/orgs")
+        assert resp.status_code == 403
+
+    def test_super_admin_can_access_global_admin_endpoints(self, client, db):
+        user = make_user(name="Super", email="super@test.com", password="secret")
+        user_dict = mock_user_dict(user, role="super_admin", is_super_admin=True)
+        with patch("api.auth_utils.get_current_user", return_value=(user_dict, None)):
+            resp = client.get("/amplex/api/admin/orgs")
+            assert resp.status_code == 200
+            assert "items" in resp.json()
+
+    def test_add_member_blocked_when_seat_limit_reached(self, client, admin_ctx):
+        org = admin_ctx["org"]
+        org.seat_limit = 1
+        org.save(update_fields=["seat_limit"])
+        user2 = make_user(name="U2", email="u2@test.com", password="secret")
+
+        resp = client.post(
+            f"/amplex/api/id/{org.slug}/org/members/add",
+            data=json.dumps({"user_id": user2.id, "role": "member"}),
+            content_type="application/json",
+        )
+        assert resp.status_code == 409
+        assert "Limite de assentos" in resp.json().get("detail", "")
+
+    def test_create_user_blocked_when_seat_limit_reached(self, client, admin_ctx):
+        org = admin_ctx["org"]
+        org.seat_limit = 1
+        org.save(update_fields=["seat_limit"])
+
+        resp = client.post(
+            f"/amplex/api/id/{org.slug}/crm/users",
+            data=json.dumps(
+                {
+                    "name": "Bloqueado",
+                    "email": "bloqueado@test.com",
+                    "password": "123456",
+                    "role": "member",
+                }
+            ),
+            content_type="application/json",
+        )
+        assert resp.status_code == 409
+
+    def test_super_admin_add_member_respects_seat_limit(self, client, db):
+        super_admin = make_user(
+            name="Super", email="super2@test.com", password="secret"
+        )
+        org = make_org(name="OrgSeat", slug="org-seat")
+        org.seat_limit = 1
+        org.save(update_fields=["seat_limit"])
+        user_a = make_user(name="A", email="a@test.com", password="secret")
+        make_member(org=org, user=user_a, role="member")
+        user_b = make_user(name="B", email="b2@test.com", password="secret")
+
+        user_dict = mock_user_dict(super_admin, role="super_admin", is_super_admin=True)
+        with patch("api.auth_utils.get_current_user", return_value=(user_dict, None)):
+            resp = client.post(
+                f"/amplex/api/admin/orgs/{org.id}/members",
+                data=json.dumps({"user_id": user_b.id, "role": "member"}),
+                content_type="application/json",
+            )
+            assert resp.status_code == 409

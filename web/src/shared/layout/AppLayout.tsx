@@ -215,6 +215,15 @@ export default function AppLayout() {
             >
               Sair
             </button>
+            {user.is_super_admin && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => navigate('/admin')}
+              >
+                Admin Global
+              </button>
+            )}
 
             {notificationsOpen && (
               <div className="absolute right-0 top-[calc(100%+8px)] z-[100] max-h-[480px] w-[min(380px,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-base-300/80 bg-base-200/95 shadow-2xl backdrop-blur-xl">
