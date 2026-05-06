@@ -27,7 +27,7 @@ def make_org(*, name="TestOrg", slug=None):
     )
 
 
-def make_user(*, name="TestUser", email="user@test.com", password="secret"):
+def make_user(*, password: str, name="TestUser", email="user@test.com"):
     login = email
     return AmplexUser.objects.create(
         name=name,
@@ -85,7 +85,7 @@ def db(transactional_db):
 def admin_ctx(db):
     """Create an org, admin user, stage, and patch auth."""
     org = make_org(name="AdminOrg")
-    user = make_user(name="Admin", email="admin@test.com")
+    user = make_user(name="Admin", email="admin@test.com", password="secret")
     make_member(org=org, user=user, role="admin")
     stage = make_stage(org=org, name="New", sequence=1)
 
@@ -103,7 +103,7 @@ def admin_ctx(db):
 def member_ctx(db):
     """Create an org, regular member, stage, and patch auth."""
     org = make_org(name="MemberOrg")
-    user = make_user(name="Member", email="member@test.com")
+    user = make_user(name="Member", email="member@test.com", password="secret")
     make_member(org=org, user=user, role="member")
     stage = make_stage(org=org, name="New", sequence=1)
 

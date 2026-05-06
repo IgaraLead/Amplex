@@ -216,7 +216,7 @@ class TestTenantIsolation:
         stage_a = admin_ctx["stage"]
 
         org_b = make_org(name="OrgB", slug="org-b")
-        user_b = make_user(name="UserB", email="b@test.com")
+        user_b = make_user(name="UserB", email="b@test.com", password="secret")
         make_member(org=org_b, user=user_b, role="admin")
         make_stage(org=org_b, name="New", sequence=1)
 
