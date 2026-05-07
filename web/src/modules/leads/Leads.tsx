@@ -1,10 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { apiGet, apiPost, apiDownload } from '@/shared/api';
 import { useToast } from '@/shared/ui/useToast';
 import { Modal } from '@/shared/ui/Modal';
 import { Download, ChevronLeft, ChevronRight } from 'lucide-react';
+
+interface ContactSuggestion {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+}
 
 interface LeadsResponse {
   items: Array<{
@@ -56,7 +63,16 @@ export default function Leads() {
     expected_revenue: 0,
     source_id: 0,
     function: '',
+    partner_id: 0,
   });
+  const [contactQuery, setContactQuery] = useState('');
+  const [debouncedContactQuery, setDebouncedContactQuery] = useState('');
+  const [showContactSuggestions, setShowContactSuggestions] = useState(false);
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedContactQuery(contactQuery), 200);
+    return () => clearTimeout(handle);
+  }, [contactQuery]);
 
   const { data, isLoading } = useQuery<LeadsResponse>({
     queryKey: ['leads', page, search],
@@ -72,6 +88,7 @@ export default function Leads() {
         ...body,
         type: 'opportunity',
         source_id: body.source_id || undefined,
+        partner_id: body.partner_id || undefined,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] });
@@ -85,7 +102,10 @@ export default function Leads() {
         expected_revenue: 0,
         source_id: 0,
         function: '',
+        partner_id: 0,
       });
+      setContactQuery('');
+      setShowContactSuggestions(false);
       addToast('Oportunidade criada', 'success');
     },
     onError: (err: Error) => addToast(err.message, 'error'),
@@ -95,6 +115,25 @@ export default function Leads() {
     queryKey: ['sources'],
     queryFn: () => apiGet('/crm/sources'),
   });
+
+  const { data: contactSuggestions } = useQuery<{ items: ContactSuggestion[] }>({
+    queryKey: ['contact-suggestions', debouncedContactQuery],
+    queryFn: () =>
+      apiGet(`/crm/contacts?search=${encodeURIComponent(debouncedContactQuery)}&limit=8`),
+    enabled: showContactSuggestions && debouncedContactQuery.trim().length >= 2,
+  });
+
+  function handleSelectContact(contact: ContactSuggestion) {
+    setNewLead(prev => ({
+      ...prev,
+      contact_name: contact.name,
+      email_from: prev.email_from || contact.email,
+      phone: prev.phone || contact.phone,
+      partner_id: contact.id,
+    }));
+    setContactQuery(contact.name);
+    setShowContactSuggestions(false);
+  }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -246,12 +285,49 @@ export default function Leads() {
               </fieldset>
               <fieldset className="fieldset">
                 <label className="label">Nome do Contato</label>
-                <input
-                  className="input w-full"
-                  value={newLead.contact_name}
-                  onChange={e => setNewLead({ ...newLead, contact_name: e.target.value })}
-                  placeholder="João Silva"
-                />
+                <div className="relative">
+                  <input
+                    className="input w-full"
+                    value={newLead.contact_name}
+                    onChange={e => {
+                      const value = e.target.value;
+                      setNewLead(prev => ({
+                        ...prev,
+                        contact_name: value,
+                        partner_id: 0,
+                      }));
+                      setContactQuery(value);
+                      setShowContactSuggestions(true);
+                    }}
+                    onFocus={() => setShowContactSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowContactSuggestions(false), 150)}
+                    placeholder="João Silva"
+                    autoComplete="off"
+                  />
+                  {showContactSuggestions &&
+                    debouncedContactQuery.trim().length >= 2 &&
+                    (contactSuggestions?.items?.length ?? 0) > 0 && (
+                      <ul className="menu absolute left-0 right-0 top-full z-10 mt-1 max-h-60 overflow-y-auto rounded-box bg-base-100 shadow-lg">
+                        {contactSuggestions!.items.map(contact => (
+                          <li key={contact.id}>
+                            <button
+                              type="button"
+                              className="flex flex-col items-start gap-0.5 py-2"
+                              onMouseDown={e => e.preventDefault()}
+                              onClick={() => handleSelectContact(contact)}
+                            >
+                              <span className="text-sm font-medium">{contact.name}</span>
+                              {(contact.email || contact.phone) && (
+                                <span className="text-xs text-base-content/60">
+                                  {[contact.email, contact.phone].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                </div>
               </fieldset>
               <div className="grid grid-cols-2 gap-3">
                 <fieldset className="fieldset">

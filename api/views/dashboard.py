@@ -108,7 +108,11 @@ def dashboard(request, slug):
     won_stage_ids = list(
         Stage.objects.filter(is_won=True, org=org).values_list("id", flat=True)
     )
-    won = base_qs().filter(stage_id__in=won_stage_ids).count() if won_stage_ids else 0
+    won = (
+        base_qs().filter(type="opportunity", stage_id__in=won_stage_ids).count()
+        if won_stage_ids
+        else 0
+    )
 
     lost_qs = Lead.objects.filter(active=False, probability=0, org=org)
     if not is_manager:
@@ -121,7 +125,7 @@ def dashboard(request, slug):
     total_revenue = (
         float(
             base_qs()
-            .filter(stage_id__in=won_stage_ids)
+            .filter(type="opportunity", stage_id__in=won_stage_ids)
             .aggregate(s=Coalesce(Sum("expected_revenue"), 0.0))["s"]
         )
         if won_stage_ids
