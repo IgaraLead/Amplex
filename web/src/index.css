@@ -347,6 +347,8 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  container-type: inline-size;
+  min-width: 0;
 }
 .stat-card-label {
   font-size: 0.75rem;
@@ -361,6 +363,12 @@ body {
   font-weight: 700;
   color: #fff;
   line-height: 1.2;
+}
+.stat-card-value--fit {
+  font-size: clamp(1.25rem, 2cqi, 1.75rem);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .stat-card-change {
   font-size: 0.75rem;

@@ -120,9 +120,10 @@ export default function Dashboard() {
       ? Math.round(((currentPeriodCount - previousPeriodCount) / previousPeriodCount) * 100)
       : 0;
 
-  // Conversion rate
-  const totalProcessed = pipeline.won + pipeline.lost;
-  const conversionRate = totalProcessed > 0 ? Math.round((pipeline.won / totalProcessed) * 100) : 0;
+  const conversionRate =
+    pipeline.total_opportunities > 0
+      ? Math.round((pipeline.won / pipeline.total_opportunities) * 100)
+      : 0;
 
   return (
     <div className="page">
@@ -172,7 +173,7 @@ export default function Dashboard() {
       {/* Stats Grid */}
       <div className="stat-grid">
         <div className="card bg-base-300 stat-card">
-          <div className="stat-card-label">Oportunidades Ativas</div>
+          <div className="stat-card-label">Oportunidades</div>
           <div className="stat-card-value">{pipeline.total_opportunities}</div>
         </div>
         <div className="card bg-base-300 stat-card">
@@ -185,7 +186,10 @@ export default function Dashboard() {
         </div>
         <div className="card bg-base-300 stat-card">
           <div className="stat-card-label">Receita Total</div>
-          <div className="stat-card-value gradient-text">
+          <div
+            className="stat-card-value stat-card-value--fit gradient-text"
+            title={formatCurrency(pipeline.total_revenue)}
+          >
             {formatCurrency(pipeline.total_revenue)}
           </div>
         </div>
@@ -207,7 +211,7 @@ export default function Dashboard() {
             {conversionRate}%
           </div>
           <div className="stat-card-change text-base-content/50">
-            {pipeline.won}W / {pipeline.lost}L
+            {pipeline.won} de {pipeline.total_opportunities}
           </div>
         </div>
       </div>

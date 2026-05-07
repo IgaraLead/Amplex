@@ -133,10 +133,6 @@ def create_lead(request, slug):
         lead.source_id = body["source_id"]
     if body.get("stage_id"):
         lead.stage_id = body["stage_id"]
-    else:
-        first_stage = Stage.objects.filter(org=org).order_by("sequence").first()
-        if first_stage:
-            lead.stage = first_stage
 
     partner_id = body.get("partner_id")
     if partner_id:
