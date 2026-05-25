@@ -6,6 +6,7 @@ from django.views.decorators.http import require_http_methods
 
 from api.auth_utils import org_required
 from api.models import Lead, Stage
+from api.views.stages import ensure_fixed_stages
 
 
 @require_http_methods(["GET"])
@@ -13,6 +14,7 @@ from api.models import Lead, Stage
 def pipeline(request, slug):
     user = request.amplex_user
     org = request.amplex_org
+    ensure_fixed_stages(org)
     lead_type = request.GET.get("type", "opportunity")
     search = request.GET.get("search")
     filter_user_id = request.GET.get("user_id")
@@ -78,6 +80,7 @@ def pipeline(request, slug):
                 "name": stage.name,
                 "sequence": stage.sequence,
                 "is_won": stage.is_won,
+                "is_lost": stage.is_lost,
                 "count": count,
                 "cards": cards,
             }

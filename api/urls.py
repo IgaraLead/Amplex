@@ -27,6 +27,7 @@ from .views import (
     stages,
     tags,
     users,
+    won_reasons,
 )
 
 
@@ -49,6 +50,7 @@ urlpatterns = [
     path("auth/login", auth.login, name="auth-login"),
     path("auth/refresh", auth.refresh, name="auth-refresh"),
     path("auth/me", auth.me, name="auth-me"),
+    path("auth/change-password", auth.change_password, name="auth-change-password"),
     path("auth/logout", auth.logout, name="auth-logout"),
     path("admin/overview", admin_views.overview, name="admin-overview"),
     path(
@@ -69,6 +71,11 @@ urlpatterns = [
     ),
     path(
         "admin/users/<int:user_id>", admin_views.update_user, name="admin-user-update"
+    ),
+    path(
+        "admin/users/<int:user_id>/reset-password",
+        admin_views.reset_user_password,
+        name="admin-user-reset-password",
     ),
     path("config", config.get_config, name="config"),
     path("id/<slug:slug>/crm/config", config.get_scoped_config, name="config-scoped"),
@@ -146,6 +153,11 @@ urlpatterns = [
         name="stages",
     ),
     path(
+        "id/<slug:slug>/crm/stages/reorder",
+        stages.reorder_stages,
+        name="stages-reorder",
+    ),
+    path(
         "id/<slug:slug>/crm/stages/<int:stage_id>",
         _dispatch(PUT=stages.update_stage, DELETE=stages.delete_stage),
         name="stages-detail",
@@ -167,6 +179,18 @@ urlpatterns = [
         "id/<slug:slug>/crm/lost-reasons/<int:reason_id>",
         lost_reasons.delete_lost_reason,
         name="lost-reasons-detail",
+    ),
+    path(
+        "id/<slug:slug>/crm/won-reasons",
+        _dispatch(
+            GET=won_reasons.list_won_reasons, POST=won_reasons.create_won_reason
+        ),
+        name="won-reasons",
+    ),
+    path(
+        "id/<slug:slug>/crm/won-reasons/<int:reason_id>",
+        won_reasons.delete_won_reason,
+        name="won-reasons-detail",
     ),
     path(
         "id/<slug:slug>/crm/users",
@@ -249,12 +273,12 @@ urlpatterns = [
         name="notifications",
     ),
     path(
-        "id/<slug:slug>/crm/notifications/<int:activity_id>/done",
+        "id/<slug:slug>/crm/notifications/<str:notification_id>/done",
         notifications.complete_notification,
         name="notifications-done",
     ),
     path(
-        "id/<slug:slug>/crm/notifications/<int:activity_id>",
+        "id/<slug:slug>/crm/notifications/<str:notification_id>",
         notifications.dismiss_notification,
         name="notifications-dismiss",
     ),

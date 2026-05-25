@@ -66,6 +66,14 @@ export async function apiFetch<T = unknown>(path: string, options: RequestInit =
   if (res.status === 204) return null as T;
   if (!res.ok) {
     const data = await res.json().catch(() => null);
+    if (
+      res.status === 403 &&
+      data?.error === 'password_change_required' &&
+      _slug &&
+      !window.location.pathname.endsWith('/password/change')
+    ) {
+      window.location.href = `/id/${_slug}/password/change`;
+    }
     throw new Error(data?.detail || data?.error || `Erro ${res.status}`);
   }
   return res.json();

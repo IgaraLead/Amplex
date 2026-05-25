@@ -1,1022 +1,730 @@
-import { useState, type ReactNode } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost, apiPut, apiDelete } from '@/shared/api';
+import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { GripVertical, Plus, Trash2 } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import PageHeader from '@/shared/page/PageHeader';
+import { apiDelete, apiGet, apiPost, apiPut } from '@/shared/api';
 import { useAuth } from '@/shared/store';
 import { useToast } from '@/shared/ui/useToast';
-import { BRAND_NAME, AMPLEX_NAME } from '@/shared/branding';
-import { Pencil, Trash2, Check, X, Shield } from 'lucide-react';
 
 interface Stage {
   id: number;
   name: string;
   sequence: number;
-  is_won: boolean;
+  is_won?: boolean;
+  is_lost?: boolean;
+  is_fixed?: boolean;
 }
-interface LostReason {
+interface NamedItem {
   id: number;
   name: string;
 }
-interface Source {
+interface UserItem {
   id: number;
   name: string;
+  email: string;
+  role: string;
 }
-interface CustomFieldDef {
+interface CustomField {
   id: number;
   name: string;
   field_type: string;
-  options: string;
-  sequence: number;
-  required: boolean;
+  options?: string;
+  sequence?: number;
+  required?: boolean;
+  active?: boolean;
 }
-
-type Tab = 'profile' | 'stages' | 'reasons' | 'sources' | 'users' | 'custom-fields' | 'permissions';
-
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        'cursor-pointer rounded-t-md px-4 py-2 text-sm transition-colors',
-        active
-          ? 'border-b-2 border-info bg-info/15 font-semibold text-base-content'
-          : 'border-b-2 border-transparent font-normal text-base-content/55 hover:text-base-content/70',
-      ].join(' ')}
-    >
-      {children}
-    </button>
-  );
-}
-
-function FormLabel({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return (
-    <label className={`mb-1 block text-xs text-base-content/55 ${className}`}>{children}</label>
-  );
-}
-
-function ListRow({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return (
-    <div
-      className={`flex items-center gap-2 rounded-md border border-base-300 bg-white/[0.02] px-3 py-2 ${className}`}
-    >
-      {children}
-    </div>
-  );
-}
-
-export default function Settings() {
-  const { user } = useAuth();
-  const { addToast } = useToast();
-  const queryClient = useQueryClient();
-  const [tab, setTab] = useState<Tab>('profile');
-  const isManager = user?.role === 'admin';
-
-  const tabs: { key: Tab; label: string; adminOnly?: boolean }[] = [
-    { key: 'profile', label: 'Perfil' },
-    { key: 'stages', label: 'Pipeline', adminOnly: true },
-    { key: 'reasons', label: 'Motivos de Perda', adminOnly: true },
-    { key: 'sources', label: 'Origens', adminOnly: true },
-    { key: 'custom-fields', label: 'Campos Personalizados', adminOnly: true },
-    { key: 'users', label: 'Usuários', adminOnly: true },
-    { key: 'permissions', label: 'Permissões', adminOnly: true },
-  ];
-
-  return (
-    <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">Configurações</h1>
-      </div>
-
-      <div className="mb-6 flex flex-wrap gap-1 border-b border-base-300 pb-2">
-        {tabs
-          .filter(t => !t.adminOnly || isManager)
-          .map(t => (
-            <TabButton key={t.key} active={tab === t.key} onClick={() => setTab(t.key)}>
-              {t.label}
-            </TabButton>
-          ))}
-      </div>
-
-      {tab === 'profile' && <ProfileTab />}
-      {tab === 'stages' && isManager && <StagesTab addToast={addToast} queryClient={queryClient} />}
-      {tab === 'reasons' && isManager && (
-        <ReasonsTab addToast={addToast} queryClient={queryClient} />
-      )}
-      {tab === 'sources' && isManager && (
-        <SourcesTab addToast={addToast} queryClient={queryClient} />
-      )}
-      {tab === 'custom-fields' && isManager && (
-        <CustomFieldsTab addToast={addToast} queryClient={queryClient} />
-      )}
-      {tab === 'users' && isManager && <UsersTab addToast={addToast} queryClient={queryClient} />}
-      {tab === 'permissions' && isManager && (
-        <PermissionsTab addToast={addToast} queryClient={queryClient} />
-      )}
-    </div>
-  );
-}
-
-function ProfileTab() {
-  const { user } = useAuth();
-  return (
-    <div className="grid max-w-3xl grid-cols-1 gap-6 md:grid-cols-2">
-      <div className="card bg-base-300">
-        <div className="card-body">
-          <h3 className="mb-4 text-sm font-semibold">Perfil</h3>
-          <div className="flex flex-col gap-3">
-            <div>
-              <span className="text-xs text-base-content/50">Nome</span>
-              <p className="text-sm">{user?.name}</p>
-            </div>
-            <div>
-              <span className="text-xs text-base-content/50">E-mail</span>
-              <p className="text-sm">{user?.email}</p>
-            </div>
-            <div>
-              <span className="text-xs text-base-content/50">Papel</span>
-              <p className="text-sm">
-                <span className="badge badge-info">
-                  {user?.role === 'admin' ? 'Gestor' : 'Vendedor'}
-                </span>
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="card bg-base-300">
-        <div className="card-body">
-          <h3 className="mb-4 text-sm font-semibold">Sobre</h3>
-          <div className="flex flex-col gap-3">
-            <div>
-              <span className="text-xs text-base-content/50">Produto</span>
-              <p className="text-sm">
-                <span className="brand-name">{AMPLEX_NAME}</span> CRM
-              </p>
-            </div>
-            <div>
-              <span className="text-xs text-base-content/50">Plataforma</span>
-              <p className="text-sm">{BRAND_NAME}</p>
-            </div>
-            <div>
-              <span className="text-xs text-base-content/50">Versão</span>
-              <p className="text-sm">0.2.0</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function StagesTab({ addToast, queryClient }: { addToast: any; queryClient: any }) {
-  const [newName, setNewName] = useState('');
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editName, setEditName] = useState('');
-
-  const { data } = useQuery<{ stages: Stage[] }>({
-    queryKey: ['stages'],
-    queryFn: () => apiGet('/crm/stages'),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (name: string) => apiPost('/crm/stages', { name }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stages'] });
-      setNewName('');
-      addToast('Estágio criado', 'success');
-    },
-    onError: (e: Error) => addToast(e.message, 'error'),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ id, name }: { id: number; name: string }) =>
-      apiPut(`/crm/stages/${id}`, { name }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stages'] });
-      setEditingId(null);
-      addToast('Estágio atualizado', 'success');
-    },
-    onError: (e: Error) => addToast(e.message, 'error'),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiDelete(`/crm/stages/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['stages'] });
-      addToast('Estágio excluído', 'success');
-    },
-    onError: (e: Error) => addToast(e.message, 'error'),
-  });
-
-  const stages = data?.stages || [];
-
-  return (
-    <div className="card bg-base-300 max-w-xl">
-      <div className="card-body">
-        <h3 className="mb-4 text-sm font-semibold">Estágios do Pipeline</h3>
-
-        <form
-          onSubmit={e => {
-            e.preventDefault();
-            if (newName.trim()) createMutation.mutate(newName.trim());
-          }}
-          className="mb-4 flex gap-2"
-        >
-          <input
-            className="input min-w-0 flex-1"
-            placeholder="Novo estágio..."
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-          />
-          <button
-            className="btn btn-primary btn-sm shrink-0"
-            type="submit"
-            disabled={!newName.trim()}
-          >
-            Adicionar
-          </button>
-        </form>
-
-        <div className="flex flex-col gap-1.5">
-          {stages.map(s => (
-            <ListRow key={s.id}>
-              {editingId === s.id ? (
-                <>
-                  <input
-                    className="input min-w-0 flex-1 px-2 py-1.5 text-sm"
-                    value={editName}
-                    onChange={e => setEditName(e.target.value)}
-                    autoFocus
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm px-2"
-                    onClick={() => updateMutation.mutate({ id: s.id, name: editName })}
-                  >
-                    <Check size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm px-2"
-                    onClick={() => setEditingId(null)}
-                  >
-                    <X size={14} />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <span className="min-w-0 flex-1 text-sm text-base-content">
-                    {s.name}
-                    {s.is_won && (
-                      <span className="ml-2 inline-flex items-center gap-0.5 text-xs text-success">
-                        <Check size={12} /> Ganho
-                      </span>
-                    )}
-                  </span>
-                  <span className="shrink-0 text-[0.7rem] text-base-content/55">#{s.sequence}</span>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm px-1.5 text-xs"
-                    onClick={() => {
-                      setEditingId(s.id);
-                      setEditName(s.name);
-                    }}
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm px-1.5 text-xs text-error"
-                    onClick={() => {
-                      if (confirm(`Excluir estágio "${s.name}"?`)) deleteMutation.mutate(s.id);
-                    }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </>
-              )}
-            </ListRow>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function ReasonsTab({ addToast, queryClient }: { addToast: any; queryClient: any }) {
-  const [newName, setNewName] = useState('');
-
-  const { data } = useQuery<{ items: LostReason[] }>({
-    queryKey: ['lost-reasons'],
-    queryFn: () => apiGet('/crm/lost-reasons'),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (name: string) => apiPost('/crm/lost-reasons', { name }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lost-reasons'] });
-      setNewName('');
-      addToast('Motivo criado', 'success');
-    },
-    onError: (e: Error) => addToast(e.message, 'error'),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiDelete(`/crm/lost-reasons/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['lost-reasons'] });
-      addToast('Motivo arquivado', 'success');
-    },
-    onError: (e: Error) => addToast(e.message, 'error'),
-  });
-
-  const reasons = data?.items || [];
-
-  return (
-    <div className="card bg-base-300 max-w-xl">
-      <div className="card-body">
-        <h3 className="mb-4 text-sm font-semibold">Motivos de Perda</h3>
-
-        <form
-          onSubmit={e => {
-            e.preventDefault();
-            if (newName.trim()) createMutation.mutate(newName.trim());
-          }}
-          className="mb-4 flex gap-2"
-        >
-          <input
-            className="input min-w-0 flex-1"
-            placeholder="Novo motivo..."
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-          />
-          <button
-            className="btn btn-primary btn-sm shrink-0"
-            type="submit"
-            disabled={!newName.trim()}
-          >
-            Adicionar
-          </button>
-        </form>
-
-        <div className="flex flex-col gap-1.5">
-          {reasons.map(r => (
-            <ListRow key={r.id}>
-              <span className="min-w-0 flex-1 text-sm text-base-content">{r.name}</span>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm px-1.5 text-xs text-error"
-                onClick={() => {
-                  if (confirm(`Arquivar motivo "${r.name}"?`)) deleteMutation.mutate(r.id);
-                }}
-              >
-                <Trash2 size={13} />
-              </button>
-            </ListRow>
-          ))}
-          {reasons.length === 0 && (
-            <p className="text-sm text-base-content/55">Nenhum motivo cadastrado</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function SourcesTab({ addToast, queryClient }: { addToast: any; queryClient: any }) {
-  const [newName, setNewName] = useState('');
-
-  const { data } = useQuery<{ items: Source[] }>({
-    queryKey: ['sources'],
-    queryFn: () => apiGet('/crm/sources'),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (name: string) => apiPost('/crm/sources', { name }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['sources'] });
-      setNewName('');
-      addToast('Origem criada', 'success');
-    },
-    onError: (e: Error) => addToast(e.message, 'error'),
-  });
-
-  const sources = data?.items || [];
-
-  return (
-    <div className="card bg-base-300 max-w-xl">
-      <div className="card-body">
-        <h3 className="mb-4 text-sm font-semibold">Origens de Leads</h3>
-
-        <form
-          onSubmit={e => {
-            e.preventDefault();
-            if (newName.trim()) createMutation.mutate(newName.trim());
-          }}
-          className="mb-4 flex gap-2"
-        >
-          <input
-            className="input min-w-0 flex-1"
-            placeholder="Nova origem..."
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-          />
-          <button
-            className="btn btn-primary btn-sm shrink-0"
-            type="submit"
-            disabled={!newName.trim()}
-          >
-            Adicionar
-          </button>
-        </form>
-
-        <div className="flex flex-col gap-1.5">
-          {sources.map(s => (
-            <ListRow key={s.id}>
-              <span className="min-w-0 flex-1 text-sm text-base-content">{s.name}</span>
-            </ListRow>
-          ))}
-          {sources.length === 0 && (
-            <p className="text-sm text-base-content/55">Nenhuma origem cadastrada</p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function UsersTab({ addToast, queryClient }: { addToast: any; queryClient: any }) {
-  const [showCreate, setShowCreate] = useState(false);
-  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'user' });
-
-  const { data, isLoading } = useQuery<{
-    items?: Array<{ id: number; name: string; email: string; role?: string }>;
-  }>({
-    queryKey: ['crm-users'],
-    queryFn: () => apiGet('/crm/users'),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (body: typeof newUser) => apiPost('/crm/users', body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['crm-users'] });
-      setShowCreate(false);
-      setNewUser({ name: '', email: '', password: '', role: 'user' });
-      addToast('Usuário criado', 'success');
-    },
-    onError: (e: Error) => addToast(e.message, 'error'),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiDelete(`/org/members/${id}/remove`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['crm-users'] });
-      addToast('Usuário desativado', 'success');
-    },
-    onError: (e: Error) => addToast(e.message, 'error'),
-  });
-
-  const users = data?.items || [];
-
-  return (
-    <div className="card bg-base-300 max-w-2xl">
-      <div className="card-body">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Membros da organização</h3>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => setShowCreate(!showCreate)}
-          >
-            {showCreate ? 'Cancelar' : '+ Novo Usuário'}
-          </button>
-        </div>
-
-        {showCreate && (
-          <form
-            onSubmit={e => {
-              e.preventDefault();
-              createMutation.mutate(newUser);
-            }}
-            className="mb-5 flex flex-col gap-3 rounded-lg border border-base-300 bg-white/[0.03] p-4"
-          >
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <FormLabel>Nome *</FormLabel>
-                <input
-                  className="input w-full"
-                  required
-                  value={newUser.name}
-                  onChange={e => setNewUser({ ...newUser, name: e.target.value })}
-                />
-              </div>
-              <div>
-                <FormLabel>E-mail *</FormLabel>
-                <input
-                  className="input w-full"
-                  type="email"
-                  required
-                  value={newUser.email}
-                  onChange={e => setNewUser({ ...newUser, email: e.target.value })}
-                />
-              </div>
-              <div>
-                <FormLabel>Senha *</FormLabel>
-                <input
-                  className="input w-full"
-                  type="password"
-                  required
-                  minLength={6}
-                  value={newUser.password}
-                  onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-                />
-              </div>
-              <div>
-                <FormLabel>Papel</FormLabel>
-                <select
-                  className="select w-full"
-                  value={newUser.role}
-                  onChange={e => setNewUser({ ...newUser, role: e.target.value })}
-                >
-                  <option value="user">Vendedor</option>
-                  <option value="admin">Gestor</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                className="btn btn-primary btn-sm"
-                disabled={createMutation.isPending}
-              >
-                {createMutation.isPending ? 'Criando...' : 'Criar Usuário'}
-              </button>
-            </div>
-          </form>
-        )}
-
-        {isLoading ? (
-          <p className="text-sm text-base-content/55">Carregando...</p>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            {users.map(u => (
-              <ListRow key={u.id} className="gap-3 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <span className="text-sm font-medium text-base-content">{u.name}</span>
-                  <span className="ml-2 text-xs text-base-content/55">{u.email}</span>
-                </div>
-                <span className="badge badge-info badge-sm shrink-0 py-0 text-[0.7rem]">
-                  {u.role === 'admin' ? 'Gestor' : 'Vendedor'}
-                </span>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm shrink-0 px-1.5 text-xs text-error"
-                  onClick={() => {
-                    if (confirm(`Desativar "${u.name}"?`)) deleteMutation.mutate(u.id);
-                  }}
-                >
-                  Desativar
-                </button>
-              </ListRow>
-            ))}
-            {users.length === 0 && (
-              <p className="text-sm text-base-content/55">Nenhum usuário encontrado</p>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function CustomFieldsTab({ addToast, queryClient }: { addToast: any; queryClient: any }) {
-  const FIELD_TYPES = [
-    { value: 'text', label: 'Texto' },
-    { value: 'number', label: 'Número' },
-    { value: 'date', label: 'Data' },
-    { value: 'select', label: 'Seleção' },
-    { value: 'checkbox', label: 'Checkbox' },
-  ];
-
-  const [newName, setNewName] = useState('');
-  const [newType, setNewType] = useState('text');
-  const [newOptions, setNewOptions] = useState('');
-  const [newRequired, setNewRequired] = useState(false);
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editForm, setEditForm] = useState({
-    name: '',
-    field_type: '',
-    options: '',
-    required: false,
-  });
-
-  const { data } = useQuery<{ items: CustomFieldDef[] }>({
-    queryKey: ['custom-field-defs'],
-    queryFn: () => apiGet('/crm/custom-fields'),
-  });
-
-  const createMutation = useMutation({
-    mutationFn: (body: {
-      name: string;
-      field_type: string;
-      options?: string;
-      required?: boolean;
-    }) => apiPost('/crm/custom-fields', body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['custom-field-defs'] });
-      setNewName('');
-      setNewType('text');
-      setNewOptions('');
-      setNewRequired(false);
-      addToast('Campo criado', 'success');
-    },
-    onError: (e: Error) => addToast(e.message, 'error'),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({
-      id,
-      ...body
-    }: {
-      id: number;
-      name: string;
-      field_type: string;
-      options: string;
-      required: boolean;
-    }) => apiPut(`/crm/custom-fields/${id}`, body),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['custom-field-defs'] });
-      setEditingId(null);
-      addToast('Campo atualizado', 'success');
-    },
-    onError: (e: Error) => addToast(e.message, 'error'),
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: (id: number) => apiDelete(`/crm/custom-fields/${id}`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['custom-field-defs'] });
-      addToast('Campo arquivado', 'success');
-    },
-    onError: (e: Error) => addToast(e.message, 'error'),
-  });
-
-  const fields = data?.items || [];
-
-  return (
-    <div className="card bg-base-300 max-w-2xl">
-      <div className="card-body">
-        <h3 className="mb-1 text-sm font-semibold">Campos Personalizados Globais</h3>
-        <p className="mb-4 text-xs text-base-content/50">
-          Defina campos personalizados que estarão disponíveis em todas as oportunidades.
-        </p>
-
-        <form
-          onSubmit={e => {
-            e.preventDefault();
-            if (newName.trim()) {
-              const opts =
-                newType === 'select' && newOptions
-                  ? JSON.stringify(
-                      newOptions
-                        .split(',')
-                        .map(s => s.trim())
-                        .filter(Boolean)
-                    )
-                  : undefined;
-              createMutation.mutate({
-                name: newName.trim(),
-                field_type: newType,
-                options: opts,
-                required: newRequired,
-              });
-            }
-          }}
-          className="mb-5 rounded-lg border border-base-300 bg-white/[0.03] p-3"
-        >
-          <div className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[1fr_auto_auto]">
-            <div>
-              <FormLabel>Nome do campo</FormLabel>
-              <input
-                className="input w-full text-sm"
-                value={newName}
-                onChange={e => setNewName(e.target.value)}
-                placeholder="Ex: CNPJ"
-              />
-            </div>
-            <div>
-              <FormLabel>Tipo</FormLabel>
-              <select
-                className="select w-full text-sm sm:w-auto"
-                value={newType}
-                onChange={e => setNewType(e.target.value)}
-              >
-                {FIELD_TYPES.map(t => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              type="submit"
-              className="btn btn-primary btn-sm w-full sm:w-auto"
-              disabled={!newName.trim()}
-            >
-              Adicionar
-            </button>
-          </div>
-          {newType === 'select' && (
-            <div className="mt-2">
-              <FormLabel>Opções (separadas por vírgula)</FormLabel>
-              <input
-                className="input w-full text-sm"
-                value={newOptions}
-                onChange={e => setNewOptions(e.target.value)}
-                placeholder="Ex: Opção A, Opção B, Opção C"
-              />
-            </div>
-          )}
-          <label className="mt-2 flex items-center gap-2 text-xs text-base-content/55">
-            <input
-              type="checkbox"
-              className="checkbox checkbox-sm"
-              checked={newRequired}
-              onChange={e => setNewRequired(e.target.checked)}
-            />
-            Obrigatório
-          </label>
-        </form>
-
-        <div className="flex flex-col gap-1.5">
-          {fields.map(f => (
-            <ListRow key={f.id}>
-              {editingId === f.id ? (
-                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                  <div className="flex flex-wrap gap-1.5">
-                    <input
-                      className="input min-w-0 flex-1 text-sm"
-                      value={editForm.name}
-                      onChange={e => setEditForm({ ...editForm, name: e.target.value })}
-                      autoFocus
-                    />
-                    <select
-                      className="select text-sm"
-                      value={editForm.field_type}
-                      onChange={e => setEditForm({ ...editForm, field_type: e.target.value })}
-                    >
-                      {FIELD_TYPES.map(t => (
-                        <option key={t.value} value={t.value}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {editForm.field_type === 'select' && (
-                    <input
-                      className="input text-xs"
-                      value={editForm.options}
-                      onChange={e => setEditForm({ ...editForm, options: e.target.value })}
-                      placeholder="Opções (separadas por vírgula)"
-                    />
-                  )}
-                  <div className="flex items-center justify-between gap-2">
-                    <label className="flex items-center gap-1 text-[0.7rem] text-base-content/55">
-                      <input
-                        type="checkbox"
-                        className="checkbox checkbox-xs"
-                        checked={editForm.required}
-                        onChange={e => setEditForm({ ...editForm, required: e.target.checked })}
-                      />
-                      Obrigatório
-                    </label>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="btn btn-primary btn-sm px-2 text-xs"
-                        onClick={() => {
-                          const opts =
-                            editForm.field_type === 'select' && editForm.options
-                              ? JSON.stringify(
-                                  editForm.options
-                                    .split(',')
-                                    .map(s => s.trim())
-                                    .filter(Boolean)
-                                )
-                              : '';
-                          updateMutation.mutate({
-                            id: f.id,
-                            name: editForm.name,
-                            field_type: editForm.field_type,
-                            options: opts,
-                            required: editForm.required,
-                          });
-                        }}
-                      >
-                        <Check size={13} />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-sm px-2 text-xs"
-                        onClick={() => setEditingId(null)}
-                      >
-                        <X size={13} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <span className="min-w-0 flex-1 text-sm text-base-content">
-                    {f.name}
-                    {f.required && <span className="ml-1 text-[0.7rem] text-error">*</span>}
-                  </span>
-                  <span className="badge badge-info shrink-0 py-0 text-[0.65rem]">
-                    {FIELD_TYPES.find(t => t.value === f.field_type)?.label || f.field_type}
-                  </span>
-                  {f.options &&
-                    (() => {
-                      try {
-                        const o = JSON.parse(f.options);
-                        return Array.isArray(o) ? (
-                          <span className="shrink-0 text-[0.65rem] text-base-content/55">
-                            {o.length} opções
-                          </span>
-                        ) : null;
-                      } catch {
-                        return null;
-                      }
-                    })()}
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm shrink-0 px-1.5 text-xs"
-                    onClick={() => {
-                      setEditingId(f.id);
-                      let optionsStr = '';
-                      if (f.options) {
-                        try {
-                          const o = JSON.parse(f.options);
-                          if (Array.isArray(o)) optionsStr = o.join(', ');
-                        } catch {
-                          optionsStr = f.options;
-                        }
-                      }
-                      setEditForm({
-                        name: f.name,
-                        field_type: f.field_type,
-                        options: optionsStr,
-                        required: f.required,
-                      });
-                    }}
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-sm shrink-0 px-1.5 text-xs text-error"
-                    onClick={() => {
-                      if (confirm(`Arquivar campo "${f.name}"?`)) deleteMutation.mutate(f.id);
-                    }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </>
-              )}
-            </ListRow>
-          ))}
-          {fields.length === 0 && (
-            <p className="py-2 text-center text-sm text-base-content/55">
-              Nenhum campo personalizado criado
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Permissions Tab (Admin only) ──────────────────
-
-const PERM_LABELS: Record<string, string> = {
-  view_all_leads: 'Ver todos os leads',
-  view_all_contacts: 'Ver todos os contatos',
-  edit_contacts: 'Editar contatos',
-  delete_leads: 'Excluir leads',
-  export_data: 'Exportar dados',
-  manage_pipeline: 'Gerenciar pipeline',
-};
-
-interface PermUser {
+interface PermissionUser {
   id: number;
   name: string;
   email: string;
   permissions: Record<string, boolean>;
 }
 
-function PermissionsTab({
-  addToast,
-  queryClient,
+function ListManager({
+  title,
+  description,
+  items,
+  value,
+  onValueChange,
+  onCreate,
+  onDelete,
+  pending,
 }: {
-  addToast: (message: string, type?: 'error' | 'success' | 'info') => void;
-  queryClient: ReturnType<typeof useQueryClient>;
+  title: string;
+  description: string;
+  items: NamedItem[];
+  value: string;
+  onValueChange: (value: string) => void;
+  onCreate: () => void;
+  onDelete?: (id: number) => void;
+  pending?: boolean;
 }) {
-  const { data } = useQuery<{ users: PermUser[] }>({
-    queryKey: ['permissions'],
-    queryFn: () => apiGet('/permissions/users'),
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: ({ userId, perms }: { userId: number; perms: Record<string, boolean> }) =>
-      apiPut(`/permissions/users/${userId}`, { permissions: perms }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['permissions'] });
-      addToast('Permissões atualizadas', 'success');
-    },
-    onError: () => addToast('Erro ao salvar permissões', 'error'),
-  });
-
-  const users = data?.users || [];
-  const permKeys = Object.keys(PERM_LABELS);
-
-  function togglePerm(user: PermUser, key: string) {
-    const updated = { ...user.permissions, [key]: !user.permissions[key] };
-    updateMutation.mutate({ userId: user.id, perms: updated });
-  }
-
   return (
-    <div className="max-w-[900px]">
-      <div className="mb-4 flex items-center gap-2">
-        <Shield size={18} className="text-info" />
-        <h3 className="text-sm font-semibold text-base-content">Permissões dos Usuários</h3>
-      </div>
-      <p className="mb-5 text-xs text-base-content/55">
-        Defina quais ações cada usuário da organização pode realizar. Por padrão, todos veem os
-        contatos — o pipeline define quem trabalha com cada lead.
-      </p>
-      <div className="card bg-base-300 overflow-x-auto">
-        <div className="card-body p-4">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-base-300">
-                <th className="px-3 py-2 text-left font-medium text-base-content/55">Usuário</th>
-                {permKeys.map(k => (
-                  <th
-                    key={k}
-                    className="whitespace-nowrap px-2 py-2 text-center font-medium text-base-content/55"
-                  >
-                    {PERM_LABELS[k]}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(u => (
-                <tr key={u.id} className="border-b border-base-300/50">
-                  <td className="px-3 py-2.5">
-                    <div className="font-medium text-base-content">{u.name}</div>
-                    <div className="text-[0.7rem] text-base-content/55">{u.email}</div>
-                  </td>
-                  {permKeys.map(k => (
-                    <td key={k} className="p-1.5 text-center">
-                      <button
-                        type="button"
-                        onClick={() => togglePerm(u, k)}
-                        className={`relative h-5 w-9 cursor-pointer rounded-full border-none transition-colors ${
-                          u.permissions[k] ? 'bg-info' : 'bg-base-300/60'
-                        }`}
-                      >
-                        <span
-                          className="absolute top-0.5 size-4 rounded-full bg-base-content transition-[left] duration-200"
-                          style={{ left: u.permissions[k] ? 18 : 2 }}
-                        />
-                      </button>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {users.length === 0 && (
-            <p className="py-4 text-center text-sm text-base-content/55">
-              Nenhum usuário encontrado
-            </p>
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-2">
+          <Input
+            value={value}
+            onChange={event => onValueChange(event.target.value)}
+            placeholder="Nome"
+          />
+          <Button type="button" onClick={onCreate} disabled={pending || !value.trim()}>
+            <Plus className="size-4" />
+            Adicionar
+          </Button>
+        </div>
+        <div className="space-y-2">
+          {items.map(item => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2"
+            >
+              <span>{item.name}</span>
+              {onDelete && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => onDelete(item.id)}
+                >
+                  <Trash2 className="size-4 text-destructive" />
+                </Button>
+              )}
+            </div>
+          ))}
+          {items.length === 0 && (
+            <p className="text-sm text-muted-foreground">Nenhum registro cadastrado.</p>
           )}
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+export default function Settings() {
+  const queryClient = useQueryClient();
+  const { addToast } = useToast();
+  const { user, currentOrg } = useAuth();
+  const isAdmin =
+    currentOrg?.role === 'admin' ||
+    user?.role === 'admin' ||
+    user?.role === 'super_admin' ||
+    user?.is_super_admin === true;
+  const [stageName, setStageName] = useState('');
+  const [editingStageId, setEditingStageId] = useState<number | null>(null);
+  const [editingStageName, setEditingStageName] = useState('');
+  const [draggingStageId, setDraggingStageId] = useState<number | null>(null);
+  const [dragOverStageId, setDragOverStageId] = useState<number | null>(null);
+  const [lostReasonName, setLostReasonName] = useState('');
+  const [wonReasonName, setWonReasonName] = useState('');
+  const [sourceName, setSourceName] = useState('');
+  const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'agente' });
+  const [customField, setCustomField] = useState({
+    name: '',
+    field_type: 'text',
+    options: '',
+    required: false,
+  });
+
+  const { data: stagesData } = useQuery<{ items?: Stage[]; stages?: Stage[] }>({
+    queryKey: ['stages'],
+    queryFn: () => apiGet('/crm/stages'),
+  });
+  const { data: lostReasonsData } = useQuery<{ items: NamedItem[] }>({
+    queryKey: ['lost-reasons'],
+    queryFn: () => apiGet('/crm/lost-reasons'),
+    enabled: isAdmin,
+  });
+  const { data: wonReasonsData } = useQuery<{ items: NamedItem[] }>({
+    queryKey: ['won-reasons'],
+    queryFn: () => apiGet('/crm/won-reasons'),
+    enabled: isAdmin,
+  });
+  const { data: sourcesData } = useQuery<{ items: NamedItem[] }>({
+    queryKey: ['sources'],
+    queryFn: () => apiGet('/crm/sources'),
+    enabled: isAdmin,
+  });
+  const { data: usersData } = useQuery<{ users: UserItem[] }>({
+    queryKey: ['crm-users'],
+    queryFn: () => apiGet('/crm/users'),
+    enabled: isAdmin,
+  });
+  const { data: customFieldsData } = useQuery<{ items: CustomField[] }>({
+    queryKey: ['custom-fields'],
+    queryFn: () => apiGet('/crm/custom-fields'),
+    enabled: isAdmin,
+  });
+  const { data: permissionsData } = useQuery<{ users: PermissionUser[] }>({
+    queryKey: ['permission-users'],
+    queryFn: () => apiGet('/permissions/users'),
+    enabled: isAdmin,
+  });
+
+  const createStage = useMutation({
+    mutationFn: (name: string) => apiPost('/crm/stages', { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stages'] });
+      setStageName('');
+      addToast('Estágio criado', 'success');
+    },
+    onError: (err: Error) => addToast(err.message, 'error'),
+  });
+  const deleteStage = useMutation({
+    mutationFn: (id: number) => apiDelete(`/crm/stages/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stages'] });
+      queryClient.invalidateQueries({ queryKey: ['pipeline'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      addToast('Estágio excluído', 'success');
+    },
+    onError: (err: Error) => addToast(err.message, 'error'),
+  });
+  const updateStage = useMutation({
+    mutationFn: ({ id, name }: { id: number; name: string }) =>
+      apiPut(`/crm/stages/${id}`, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stages'] });
+      setEditingStageId(null);
+      setEditingStageName('');
+    },
+    onError: (err: Error) => addToast(err.message, 'error'),
+  });
+  const reorderStages = useMutation({
+    mutationFn: (stageIds: number[]) => apiPut('/crm/stages/reorder', { stage_ids: stageIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['stages'] });
+      queryClient.invalidateQueries({ queryKey: ['pipeline'] });
+    },
+    onError: (err: Error) => addToast(err.message, 'error'),
+  });
+  const createLostReason = useMutation({
+    mutationFn: (name: string) => apiPost('/crm/lost-reasons', { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['lost-reasons'] });
+      setLostReasonName('');
+    },
+  });
+  const deleteLostReason = useMutation({
+    mutationFn: (id: number) => apiDelete(`/crm/lost-reasons/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['lost-reasons'] }),
+  });
+  const createWonReason = useMutation({
+    mutationFn: (name: string) => apiPost('/crm/won-reasons', { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['won-reasons'] });
+      setWonReasonName('');
+    },
+  });
+  const deleteWonReason = useMutation({
+    mutationFn: (id: number) => apiDelete(`/crm/won-reasons/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['won-reasons'] }),
+  });
+  const createSource = useMutation({
+    mutationFn: (name: string) => apiPost('/crm/sources', { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sources'] });
+      setSourceName('');
+    },
+  });
+  const createUser = useMutation({
+    mutationFn: (body: typeof newUser) => apiPost('/crm/users', body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm-users'] });
+      setNewUser({ name: '', email: '', password: '', role: 'agente' });
+    },
+    onError: (err: Error) => addToast(err.message, 'error'),
+  });
+  const removeUser = useMutation({
+    mutationFn: (id: number) => apiDelete(`/org/members/${id}/remove`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crm-users'] }),
+  });
+  const createCustomField = useMutation({
+    mutationFn: (body: typeof customField) => apiPost('/crm/custom-fields', body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['custom-fields'] });
+      setCustomField({ name: '', field_type: 'text', options: '', required: false });
+    },
+  });
+  const deleteCustomField = useMutation({
+    mutationFn: (id: number) => apiDelete(`/crm/custom-fields/${id}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['custom-fields'] }),
+  });
+  const updatePermissions = useMutation({
+    mutationFn: ({
+      userId,
+      permissions,
+    }: {
+      userId: number;
+      permissions: Record<string, boolean>;
+    }) => apiPut(`/permissions/users/${userId}`, { permissions }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['permission-users'] }),
+  });
+
+  const stages = stagesData?.items ?? stagesData?.stages ?? [];
+  const regularStages = stages.filter(stage => !stage.is_fixed);
+  const fixedStages = stages.filter(stage => stage.is_fixed);
+  const handleStageDrop = (targetStage: Stage) => {
+    if (!draggingStageId || targetStage.is_fixed || draggingStageId === targetStage.id) {
+      setDraggingStageId(null);
+      setDragOverStageId(null);
+      return;
+    }
+    const draggingStage = regularStages.find(stage => stage.id === draggingStageId);
+    if (!draggingStage) {
+      setDraggingStageId(null);
+      setDragOverStageId(null);
+      return;
+    }
+    const nextStages = regularStages.filter(stage => stage.id !== draggingStageId);
+    const targetIndex = nextStages.findIndex(stage => stage.id === targetStage.id);
+    nextStages.splice(targetIndex < 0 ? nextStages.length : targetIndex, 0, draggingStage);
+    reorderStages.mutate(nextStages.map(stage => stage.id));
+    setDraggingStageId(null);
+    setDragOverStageId(null);
+  };
+  const handleStageNameSubmit = (stage: Stage) => {
+    const name = editingStageName.trim();
+    if (!name || name === stage.name) {
+      setEditingStageId(null);
+      setEditingStageName('');
+      return;
+    }
+    updateStage.mutate({ id: stage.id, name });
+  };
+
+  return (
+    <div className="space-y-8 animate-fade-in">
+      <div className="border-b border-border/70 pb-6">
+        <PageHeader
+          title="Configurações"
+          description="Gerencie preferências pessoais, pipeline e administração da organização."
+          tag="Amplex"
+        />
       </div>
+
+      <Tabs defaultValue="profile" className="space-y-6">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start">
+          <TabsTrigger value="profile">Perfil</TabsTrigger>
+          <TabsTrigger value="stages">Estágios</TabsTrigger>
+          {isAdmin && <TabsTrigger value="reasons">Motivos</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="fields">Campos customizados</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="admin">Administração</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="permissions">Permissões</TabsTrigger>}
+        </TabsList>
+
+        <TabsContent value="profile">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Minha conta</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Nome</p>
+                  <p className="font-medium">{user?.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">E-mail</p>
+                  <p className="font-medium">{user?.email}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Papel</p>
+                  <Badge>{isAdmin ? 'Gestor' : 'Vendedor'}</Badge>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Organização</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Nome</p>
+                  <p className="font-medium">{currentOrg?.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Slug</p>
+                  <p className="font-mono text-sm">{currentOrg?.slug}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="stages">
+          <Card>
+            <CardHeader>
+              <CardTitle>Estágios do pipeline</CardTitle>
+              <CardDescription>Ordem operacional do funil comercial.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {isAdmin && (
+                <div className="flex gap-2">
+                  <Input
+                    value={stageName}
+                    onChange={event => setStageName(event.target.value)}
+                    placeholder="Nome"
+                  />
+                  <Button
+                    type="button"
+                    onClick={() => createStage.mutate(stageName)}
+                    disabled={createStage.isPending || !stageName.trim()}
+                  >
+                    <Plus className="size-4" />
+                    Adicionar
+                  </Button>
+                </div>
+              )}
+              <div className="space-y-2">
+                {[...regularStages, ...fixedStages].map(stage => (
+                  <div
+                    key={stage.id}
+                    draggable={isAdmin && !stage.is_fixed}
+                    onDragStart={event => {
+                      if (stage.is_fixed) return;
+                      event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData('text/plain', String(stage.id));
+                      setDraggingStageId(stage.id);
+                    }}
+                    onDragOver={event => {
+                      if (stage.is_fixed) return;
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = 'move';
+                    }}
+                    onDragEnter={() => !stage.is_fixed && setDragOverStageId(stage.id)}
+                    onDragLeave={() => setDragOverStageId(null)}
+                    onDrop={() => handleStageDrop(stage)}
+                    onDragEnd={() => {
+                      setDraggingStageId(null);
+                      setDragOverStageId(null);
+                    }}
+                    className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2 transition ${
+                      dragOverStageId === stage.id
+                        ? 'border-primary bg-primary/10'
+                        : 'border-border bg-muted/30'
+                    }`}
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <GripVertical
+                        className={`size-4 shrink-0 ${
+                          stage.is_fixed ? 'text-muted-foreground/30' : 'text-muted-foreground'
+                        }`}
+                      />
+                      <div className="min-w-0 flex-1">
+                        {editingStageId === stage.id ? (
+                          <form
+                            className="flex gap-2"
+                            onSubmit={event => {
+                              event.preventDefault();
+                              handleStageNameSubmit(stage);
+                            }}
+                          >
+                            <Input
+                              autoFocus
+                              value={editingStageName}
+                              onChange={event => setEditingStageName(event.target.value)}
+                              onBlur={() => handleStageNameSubmit(stage)}
+                            />
+                          </form>
+                        ) : (
+                          <button
+                            type="button"
+                            className="truncate text-left font-medium hover:text-primary disabled:hover:text-foreground"
+                            disabled={!isAdmin || stage.is_fixed}
+                            onClick={() => {
+                              setEditingStageId(stage.id);
+                              setEditingStageName(stage.name);
+                            }}
+                          >
+                            {stage.name}
+                          </button>
+                        )}
+                      </div>
+                      {stage.is_won && <Badge variant="success">Ganho</Badge>}
+                      {stage.is_lost && <Badge variant="destructive">Perda</Badge>}
+                      {stage.is_fixed && <Badge variant="secondary">Fixo</Badge>}
+                    </div>
+                    {isAdmin && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={stage.is_fixed}
+                        onClick={() => deleteStage.mutate(stage.id)}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                        Excluir
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                {stages.length === 0 && (
+                  <p className="text-sm text-muted-foreground">Nenhum registro cadastrado.</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {isAdmin && (
+          <TabsContent value="reasons">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <ListManager
+                title="Motivos de ganho"
+                description="Motivos usados ao concluir oportunidades ganhas."
+                items={wonReasonsData?.items ?? []}
+                value={wonReasonName}
+                onValueChange={setWonReasonName}
+                onCreate={() => createWonReason.mutate(wonReasonName)}
+                onDelete={id => deleteWonReason.mutate(id)}
+              />
+              <ListManager
+                title="Motivos de perda"
+                description="Motivos usados ao encerrar oportunidades perdidas."
+                items={lostReasonsData?.items ?? []}
+                value={lostReasonName}
+                onValueChange={setLostReasonName}
+                onCreate={() => createLostReason.mutate(lostReasonName)}
+                onDelete={id => deleteLostReason.mutate(id)}
+              />
+            </div>
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="admin">
+            <div className="grid gap-6 lg:grid-cols-2">
+              <ListManager
+                title="Origens"
+                description="Canais de aquisição para oportunidades."
+                items={sourcesData?.items ?? []}
+                value={sourceName}
+                onValueChange={setSourceName}
+                onCreate={() => createSource.mutate(sourceName)}
+              />
+            </div>
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Usuários</CardTitle>
+                <CardDescription>Convide e remova membros desta organização.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <form
+                  className="grid gap-3 md:grid-cols-5"
+                  onSubmit={event => {
+                    event.preventDefault();
+                    createUser.mutate(newUser);
+                  }}
+                >
+                  <Input
+                    placeholder="Nome"
+                    value={newUser.name}
+                    onChange={event => setNewUser({ ...newUser, name: event.target.value })}
+                    required
+                  />
+                  <Input
+                    type="email"
+                    placeholder="E-mail"
+                    value={newUser.email}
+                    onChange={event => setNewUser({ ...newUser, email: event.target.value })}
+                    required
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Senha"
+                    value={newUser.password}
+                    onChange={event => setNewUser({ ...newUser, password: event.target.value })}
+                    required
+                  />
+                  <Select
+                    value={newUser.role}
+                    onValueChange={role => setNewUser({ ...newUser, role })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="agente">Agente</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button type="submit">Criar</Button>
+                </form>
+                <div className="space-y-2">
+                  {(usersData?.users ?? []).map(item => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3"
+                    >
+                      <div>
+                        <p className="font-medium">{item.name}</p>
+                        <p className="text-xs text-muted-foreground">{item.email}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">{item.role}</Badge>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => removeUser.mutate(item.id)}
+                        >
+                          <Trash2 className="size-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="fields">
+            <Card>
+              <CardHeader>
+                <CardTitle>Campos personalizados</CardTitle>
+                <CardDescription>
+                  Campos extras exibidos nos detalhes da oportunidade.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <form
+                  className="grid gap-3 md:grid-cols-[1fr_180px_1fr_auto_auto]"
+                  onSubmit={event => {
+                    event.preventDefault();
+                    createCustomField.mutate(customField);
+                  }}
+                >
+                  <Input
+                    placeholder="Nome"
+                    value={customField.name}
+                    onChange={event => setCustomField({ ...customField, name: event.target.value })}
+                    required
+                  />
+                  <Select
+                    value={customField.field_type}
+                    onValueChange={field_type => setCustomField({ ...customField, field_type })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="text">Texto</SelectItem>
+                      <SelectItem value="number">Número</SelectItem>
+                      <SelectItem value="date">Data</SelectItem>
+                      <SelectItem value="select">Seleção</SelectItem>
+                      <SelectItem value="checkbox">Checkbox</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Input
+                    placeholder="Opções (uma por linha)"
+                    value={customField.options}
+                    disabled={customField.field_type !== 'select'}
+                    onChange={event =>
+                      setCustomField({ ...customField, options: event.target.value })
+                    }
+                  />
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={customField.required}
+                      onCheckedChange={checked =>
+                        setCustomField({ ...customField, required: checked === true })
+                      }
+                    />
+                    Obrigatório
+                  </label>
+                  <Button type="submit">Criar</Button>
+                </form>
+                <div className="space-y-2">
+                  {(customFieldsData?.items ?? []).map(field => (
+                    <div
+                      key={field.id}
+                      className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3"
+                    >
+                      <div>
+                        <p className="font-medium">{field.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {field.field_type}
+                          {field.required ? ' · obrigatório' : ''}
+                          {field.options ? ' · com opções' : ''}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => deleteCustomField.mutate(field.id)}
+                      >
+                        <Trash2 className="size-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {isAdmin && (
+          <TabsContent value="permissions">
+            <Card>
+              <CardHeader>
+                <CardTitle>Permissões por usuário</CardTitle>
+                <CardDescription>Controle permissões operacionais adicionais.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(permissionsData?.users ?? []).map(item => (
+                  <div key={item.id} className="rounded-xl border border-border bg-muted/20 p-4">
+                    <div className="mb-3">
+                      <p className="font-medium">{item.name}</p>
+                      <p className="text-xs text-muted-foreground">{item.email}</p>
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {Object.keys(item.permissions).map(key => (
+                        <label
+                          key={key}
+                          className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+                        >
+                          <Checkbox
+                            checked={item.permissions[key]}
+                            onCheckedChange={checked =>
+                              updatePermissions.mutate({
+                                userId: item.id,
+                                permissions: { ...item.permissions, [key]: checked === true },
+                              })
+                            }
+                          />
+                          {key.replace(/_/g, ' ')}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }

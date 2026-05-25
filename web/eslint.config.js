@@ -30,17 +30,5 @@ export default tseslint.config(
       ],
     },
   },
-  {
-    files: [
-      'src/modules/dashboard/Dashboard.tsx',
-      'src/modules/leads/LeadDetail.tsx',
-      'src/modules/settings/Settings.tsx',
-      'src/shared/layout/AppLayout.tsx',
-      'src/shared/ui/Logo.tsx',
-    ],
-    rules: {
-      'no-restricted-syntax': 'off',
-    },
-  },
   prettier
 );

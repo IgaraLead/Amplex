@@ -4,10 +4,11 @@ import json
 
 from django.db.models import Q
 from django.http import JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from api.auth_utils import org_admin_required, org_required
-from api.models import AmplexUser, Contact, Interaction, Lead, LostReason, Stage, Tag
+from api.models import AmplexUser, Contact, Interaction, Lead, LostReason, Stage, Tag, WonReason
 
 from .permissions import get_user_permission
 
@@ -213,6 +214,8 @@ def get_lead(request, slug, lead_id):
             "date_closed": lead.date_closed,
             "lost_reason_id": lead.lost_reason_id,
             "lost_reason": lead.lost_reason.name if lead.lost_reason else "",
+            "won_reason_id": lead.won_reason_id,
+            "won_reason": lead.won_reason.name if lead.won_reason else "",
         }
     )
 
@@ -312,14 +315,52 @@ def move_lead(request, slug, lead_id):
     if not stage:
         return JsonResponse({"detail": "Stage not found"}, status=404)
 
+    update_fields = ["stage_id", "probability", "date_closed", "lost_reason_id", "won_reason_id"]
     lead.stage = stage
-    lead.save(update_fields=["stage_id"])
+    if stage.is_won:
+        reason = WonReason.objects.filter(id=body.get("won_reason_id"), org=org).first()
+        has_reasons = WonReason.objects.filter(org=org, active=True).exists()
+        if has_reasons and not reason:
+            return JsonResponse({"detail": "Won reason not found"}, status=400)
+        lead.won_reason = reason
+        lead.lost_reason = None
+        lead.probability = 100
+        lead.date_closed = timezone.now()
+    elif stage.is_lost:
+        reason = LostReason.objects.filter(id=body.get("lost_reason_id"), org=org).first()
+        has_reasons = LostReason.objects.filter(org=org, active=True).exists()
+        if has_reasons and not reason:
+            return JsonResponse({"detail": "Lost reason not found"}, status=400)
+        lead.lost_reason = reason
+        lead.won_reason = None
+        lead.probability = 0
+        lead.date_closed = timezone.now()
+    else:
+        lead.lost_reason = None
+        lead.won_reason = None
+        lead.date_closed = None
+    lead.active = True
+    update_fields.append("active")
+    lead.save(update_fields=update_fields)
+    if stage.is_won or stage.is_lost:
+        status_label = "ganha" if stage.is_won else "perdida"
+        reason = lead.won_reason if stage.is_won else lead.lost_reason
+        reason_label = reason.name if reason else "Sem motivo definido"
+        Interaction.objects.create(
+            lead=lead,
+            interaction_type="note",
+            body=f"<p><strong>Oportunidade {status_label}</strong>: {reason_label}</p>",
+            preview=f"Oportunidade {status_label}: {reason_label}",
+            author_id=user["user_id"],
+        )
     return JsonResponse(
         {
             "id": lead.id,
             "name": lead.name,
             "stage_id": stage.id,
             "stage_name": stage.name,
+            "is_won": stage.is_won,
+            "is_lost": stage.is_lost,
         }
     )
 
@@ -380,10 +421,24 @@ def mark_lead_lost(request, slug, lead_id):
     if not reason:
         return JsonResponse({"detail": "Lost reason not found"}, status=404)
 
-    lead.active = False
+    lost_stage = Stage.objects.filter(org=org, is_lost=True).order_by("sequence").first()
+    if lost_stage:
+        lead.stage = lost_stage
+    lead.active = True
     lead.lost_reason = reason
+    lead.won_reason = None
     lead.probability = 0
-    lead.save(update_fields=["active", "lost_reason_id", "probability"])
+    lead.date_closed = timezone.now()
+    lead.save(
+        update_fields=[
+            "stage_id",
+            "active",
+            "lost_reason_id",
+            "won_reason_id",
+            "probability",
+            "date_closed",
+        ]
+    )
 
     Interaction.objects.create(
         lead=lead,

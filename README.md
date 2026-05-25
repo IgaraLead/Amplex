@@ -24,6 +24,11 @@ CRM do ecossistema IgaraLead. Operacionaliza pipeline de vendas, oportunidades, 
 ## Desenvolvimento
 
 ```bash
+# Docker local autocontido
+cp .env.example .env
+# ajuste ENVIRONMENT=development e COMPOSE_PROFILES=dev no .env
+docker compose up -d --build
+
 # Backend
 pip install -r requirements.txt
 python manage.py runserver

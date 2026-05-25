@@ -1,57 +1,156 @@
 # ============================================================
-#  Amplex — Docker Compose (Dev)
+#  Amplex — Docker Compose único
 # ============================================================
-#  Espera rede externa com Postgres + Redis (ex.: Infra stack).
-#  Crie a BD `amplex` no Postgres antes do primeiro `up`.
+#  O compose inclui todos os serviços necessários para o Amplex:
+#  app, PostgreSQL, Redis e MinIO.
 #
-#    docker compose up -d --build
+#  Use ENVIRONMENT no .env para selecionar comportamento:
+#    production   → sem seed fictício
+#    development  → roda seed admin/org idempotente
+#
+#  Segurança de dados:
+#    - não use `docker compose down -v` em ambientes com clientes
+#    - mantenha os volumes nomeados abaixo apontando para os dados existentes
+#    - faça backup de Postgres e MinIO antes de mudanças em produção
 # ============================================================
 
 services:
-  amplex-backend:
-    build: .
-    command: python manage.py runserver 0.0.0.0:8000
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${AMPLEX_POSTGRES_CONTAINER:-amplex-postgres}
     restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DATABASE:-amplex}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME:-postgres} -d ${POSTGRES_DATABASE:-amplex}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - amplex
+
+  redis:
+    image: redis:7-alpine
+    container_name: ${AMPLEX_REDIS_CONTAINER:-amplex-redis}
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    command: >
+      sh -c '
+        if [ -n "$${REDIS_PASSWORD}" ]; then
+          redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}";
+        else
+          redis-server --appendonly yes;
+        fi
+      '
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "if [ -n \"$${REDIS_PASSWORD}\" ]; then redis-cli -a \"$${REDIS_PASSWORD}\" ping; else redis-cli ping; fi"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - amplex
+
+  minio:
+    image: minio/minio:latest
+    container_name: ${AMPLEX_MINIO_CONTAINER:-amplex-minio}
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${STORAGE_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${STORAGE_SECRET_ACCESS_KEY:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "${AMPLEX_MINIO_PORT_BIND:-127.0.0.1:9002:9000}"
+      - "${AMPLEX_MINIO_CONSOLE_PORT_BIND:-127.0.0.1:9003:9001}"
+    networks:
+      - amplex
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: ${AMPLEX_MINIO_INIT_CONTAINER:-amplex-minio-init}
+    depends_on:
+      - minio
+    entrypoint: >
+      sh -c "
+        until mc alias set local http://minio:9000 ${STORAGE_ACCESS_KEY_ID:-minioadmin} ${STORAGE_SECRET_ACCESS_KEY:-minioadmin} 2>/dev/null; do
+          echo 'Aguardando MinIO...'; sleep 3;
+        done;
+        mc mb --ignore-existing local/${STORAGE_BUCKET_NAME:-amplex};
+        echo 'Bucket ${STORAGE_BUCKET_NAME:-amplex} pronto.';
+      "
+    networks:
+      - amplex
+
+  amplex:
+    image: ${AMPLEX_IMAGE:-ghcr.io/igaralead/amplex:latest}
+    build:
+      context: .
+    pull_policy: ${AMPLEX_PULL_POLICY:-always}
+    container_name: ${AMPLEX_CONTAINER_NAME:-amplex}
+    command: >
+      sh -c "${AMPLEX_COMMAND:-gunicorn amplex.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 120 --access-logfile - --error-logfile -}"
+    restart: ${AMPLEX_RESTART_POLICY:-always}
     logging:
       driver: json-file
       options:
         max-size: "20m"
         max-file: "5"
     ports:
-      - "8002:8000"
+      - "${AMPLEX_PORT_BIND:-127.0.0.1:8002:8000}"
     env_file:
       - path: .env
         required: false
     environment:
-      ENVIRONMENT: development
-      SECRET_KEY_BASE: dev-not-for-production-use-change-me-please-12345
-      POSTGRES_HOST: postgres
-      POSTGRES_USERNAME: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DATABASE: amplex
-      REDIS_URL: redis://:redis@redis:6379/0
-      AMPLEX_ADMIN_EMAIL: admin@dev.local
-      AMPLEX_ADMIN_PASSWORD: admin123
-      AMPLEX_ADMIN_NAME: Admin
-      AMPLEX_DEFAULT_ORG_NAME: Dev Org
-      AMPLEX_DEFAULT_ORG_SLUG: dev
-      AMPLEX_CORS_ORIGINS: http://localhost:3003
-      FRONTEND_URL: http://localhost:3003
-    volumes:
-      - ./api:/app/api
-      - ./amplex:/app/amplex
-      - ./manage.py:/app/manage.py
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:-}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_USERNAME: ${POSTGRES_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DATABASE: ${POSTGRES_DATABASE:-amplex}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      STORAGE_ENDPOINT: ${STORAGE_ENDPOINT:-http://minio:9000}
+      STORAGE_ACCESS_KEY_ID: ${STORAGE_ACCESS_KEY_ID:-minioadmin}
+      STORAGE_SECRET_ACCESS_KEY: ${STORAGE_SECRET_ACCESS_KEY:-minioadmin}
+      STORAGE_BUCKET_NAME: ${STORAGE_BUCKET_NAME:-amplex}
+      STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
+      AMPLEX_ADMIN_EMAIL: ${AMPLEX_ADMIN_EMAIL:-}
+      AMPLEX_ADMIN_PASSWORD: ${AMPLEX_ADMIN_PASSWORD:-}
+      AMPLEX_ADMIN_NAME: ${AMPLEX_ADMIN_NAME:-Admin}
+      AMPLEX_DEFAULT_ORG_NAME: ${AMPLEX_DEFAULT_ORG_NAME:-}
+      AMPLEX_DEFAULT_ORG_SLUG: ${AMPLEX_DEFAULT_ORG_SLUG:-}
+      AMPLEX_DEFAULT_ORG_SEAT_LIMIT: ${AMPLEX_DEFAULT_ORG_SEAT_LIMIT:-0}
+      AMPLEX_CORS_ORIGINS: ${AMPLEX_CORS_ORIGINS:-http://localhost:3003}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3003}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/amplex/api/health')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
-      - igaralead_public
+      - amplex
 
   amplex-frontend:
     image: node:20-alpine
+    profiles: ["dev"]
+    container_name: ${AMPLEX_FRONTEND_CONTAINER:-amplex-frontend}
     working_dir: /app
     command: sh -c "if [ ! -d node_modules ] || [ -z \"$(ls -A node_modules 2>/dev/null)\" ]; then npm install; fi && npm run dev -- --host 0.0.0.0"
     volumes:
@@ -60,16 +159,25 @@ services:
     ports:
       - "3003:3003"
     environment:
+      API_URL: http://amplex:8000
       CHOKIDAR_USEPOLLING: "true"
-      API_URL: http://amplex-backend:8000
     depends_on:
-      - amplex-backend
+      amplex:
+        condition: service_started
     networks:
-      - igaralead_public
+      - amplex
 
 volumes:
+  postgres_data:
+    name: ${POSTGRES_DATA_VOLUME:-amplex_postgres_data}
+  redis_data:
+    name: ${REDIS_DATA_VOLUME:-amplex_redis_data}
+  minio_data:
+    name: ${MINIO_DATA_VOLUME:-amplex_minio_data}
   amplex_web_node_modules:
+    name: ${AMPLEX_WEB_NODE_MODULES_VOLUME:-amplex_web_node_modules}
 
 networks:
-  igaralead_public:
-    external: true
+  amplex:
+    name: ${AMPLEX_NETWORK_NAME:-amplex_network}
+    external: ${AMPLEX_NETWORK_EXTERNAL:-false}

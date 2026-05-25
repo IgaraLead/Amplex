@@ -129,6 +129,12 @@ def get_current_user(request):
     user = AmplexUser.objects.filter(id=uid).first()
     if not user or not user.active:
         return None, JsonResponse({"detail": "Usuário não encontrado"}, status=401)
+    try:
+        session_version = int(claims.get("session_version") or 0)
+    except (TypeError, ValueError):
+        return None, JsonResponse({"detail": "Token inválido"}, status=401)
+    if session_version != int(user.session_version or 0):
+        return None, JsonResponse({"detail": "Sessão expirada"}, status=401)
 
     role = _effective_global_role(user)
     return {
@@ -137,8 +143,20 @@ def get_current_user(request):
         "email": user.email,
         "role": role,
         "is_super_admin": user.is_super_admin,
+        "force_password_change": user.force_password_change,
         "memberships": [],
     }, None
+
+
+def _password_change_required(user, view_func):
+    if not user.get("force_password_change"):
+        return None
+    if view_func.__name__ in {"me", "change_password"}:
+        return None
+    return JsonResponse(
+        {"detail": "Troca de senha obrigatória.", "error": "password_change_required"},
+        status=403,
+    )
 
 
 def get_org_context(request, slug):
@@ -188,6 +206,9 @@ def login_required(view_func):
         user, error = get_current_user(request)
         if error:
             return error
+        blocked = _password_change_required(user, view_func)
+        if blocked:
+            return blocked
         request.amplex_user = user
         return view_func(request, *args, **kwargs)
 
@@ -202,6 +223,9 @@ def org_required(view_func):
         user, org, error = get_org_context(request, slug)
         if error:
             return error
+        blocked = _password_change_required(user, view_func)
+        if blocked:
+            return blocked
         request.amplex_user = user
         request.amplex_org = org
         return view_func(request, slug, *args, **kwargs)
@@ -219,6 +243,9 @@ def org_admin_required(view_func):
             return error
         if user["role"] not in ("admin", "super_admin"):
             return JsonResponse({"detail": "Permissão negada"}, status=403)
+        blocked = _password_change_required(user, view_func)
+        if blocked:
+            return blocked
         request.amplex_user = user
         request.amplex_org = org
         return view_func(request, slug, *args, **kwargs)
@@ -236,6 +263,9 @@ def super_admin_required(view_func):
             return error
         if not user.get("is_super_admin"):
             return JsonResponse({"detail": "Permissão negada"}, status=403)
+        blocked = _password_change_required(user, view_func)
+        if blocked:
+            return blocked
         request.amplex_user = user
         return view_func(request, *args, **kwargs)
 

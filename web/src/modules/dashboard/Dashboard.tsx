@@ -1,8 +1,30 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { Check, TrendingUp, Users } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import PageHeader from '@/shared/page/PageHeader';
 import { apiGet } from '@/shared/api';
 import { useAuth } from '@/shared/store';
-import { Check } from 'lucide-react';
 
 interface DashboardData {
   pipeline: {
@@ -16,13 +38,7 @@ interface DashboardData {
     current_period_count?: number;
     previous_period_count?: number;
   };
-  stages: Array<{
-    id: number;
-    name: string;
-    count: number;
-    revenue: number;
-    is_won: boolean;
-  }>;
+  stages: Array<{ id: number; name: string; count: number; revenue: number; is_won: boolean }>;
   total_contacts: number;
 }
 
@@ -55,8 +71,41 @@ interface NextContactItem {
 
 type PeriodKey = 'day' | 'week' | 'month' | 'custom';
 
-function formatCurrency(value: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+function MetricCard({
+  label,
+  value,
+  detail,
+  tone = 'default',
+}: {
+  label: string;
+  value: string | number;
+  detail?: string;
+  tone?: 'default' | 'success' | 'warning';
+}) {
+  return (
+    <Card className="py-4">
+      <CardContent className="space-y-2 px-5">
+        <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+          {label}
+        </p>
+        <p
+          className={
+            tone === 'success'
+              ? 'text-2xl font-bold text-success'
+              : tone === 'warning'
+                ? 'text-2xl font-bold text-warning'
+                : 'text-2xl font-bold text-foreground'
+          }
+        >
+          {value}
+        </p>
+        {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function Dashboard() {
@@ -76,39 +125,42 @@ export default function Dashboard() {
     return params.toString();
   }, [period, startDate, endDate]);
 
-  const { data, isLoading, error } = useQuery<DashboardData>({
+  const {
+    data,
+    isLoading,
+    isFetching: isDashboardFetching,
+    error,
+  } = useQuery<DashboardData>({
     queryKey: ['dashboard', period, startDate, endDate],
     queryFn: () => apiGet(`/crm/dashboard?${periodQuery}`),
+    placeholderData: keepPreviousData,
   });
 
-  const { data: advancedData } = useQuery<AdvancedDashData>({
+  const { data: advancedData, isFetching: isAdvancedFetching } = useQuery<AdvancedDashData>({
     queryKey: ['dashboard-advanced', period, startDate, endDate],
     queryFn: () => apiGet(`/crm/dashboard/advanced?${periodQuery}`),
     enabled: isManager,
+    placeholderData: keepPreviousData,
   });
 
-  const { data: nextContactsData } = useQuery<{ items: NextContactItem[] }>({
+  const { data: nextContactsData, isFetching: isNextContactsFetching } = useQuery<{
+    items: NextContactItem[];
+  }>({
     queryKey: ['next-contacts', period, startDate, endDate],
     queryFn: () => apiGet(`/crm/leads/next-contacts?limit=10&${periodQuery}`),
+    placeholderData: keepPreviousData,
   });
 
-  if (isLoading) {
-    return (
-      <div className="page">
-        <div className="text-center py-12 text-base-content/50">Carregando dashboard...</div>
-      </div>
-    );
-  }
+  if (isLoading)
+    return <div className="py-12 text-center text-muted-foreground">Carregando dashboard...</div>;
 
   if (error || !data) {
     return (
-      <div className="page">
-        <div className="card bg-base-300">
-          <div className="card-body text-center">
-            <p className="text-error">Erro ao carregar dashboard</p>
-          </div>
-        </div>
-      </div>
+      <Card>
+        <CardContent className="p-8 text-center text-destructive">
+          Erro ao carregar dashboard
+        </CardContent>
+      </Card>
     );
   }
 
@@ -119,50 +171,63 @@ export default function Dashboard() {
     previousPeriodCount > 0
       ? Math.round(((currentPeriodCount - previousPeriodCount) / previousPeriodCount) * 100)
       : 0;
-
   const conversionRate =
     pipeline.total_opportunities > 0
       ? Math.round((pipeline.won / pipeline.total_opportunities) * 100)
       : 0;
+  const maxStageCount = Math.max(...stages.map(stage => stage.count), 1);
+  const isRefreshing = isDashboardFetching || isAdvancedFetching || isNextContactsFetching;
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">
-          {isManager ? 'Dashboard - Visão Geral' : `Dashboard - ${user?.name || 'Vendedor'}`}
-        </h1>
-        <div className="flex flex-wrap items-end gap-2">
-          <div>
-            <label className="mb-1 block text-xs text-base-content/55">Período</label>
-            <select
-              className="select select-sm h-9 text-xs"
-              value={period}
-              onChange={e => setPeriod(e.target.value as PeriodKey)}
+    <div className="space-y-8 animate-fade-in">
+      <div className="grid gap-4 border-b border-border/70 pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <PageHeader
+          title={isManager ? 'Dashboard - Visão Geral' : `Dashboard - ${user?.name || 'Vendedor'}`}
+          description="Acompanhe oportunidades, receita, conversão e próximos contatos do pipeline."
+          tag="Dados"
+          className="mb-0 min-w-0 self-end border-b-0 pb-0"
+        />
+        <div className="flex flex-wrap items-end justify-end gap-3 justify-self-end">
+          {isRefreshing && (
+            <Badge
+              variant="outline"
+              className="mb-0.5 border-primary/30 bg-primary/10 text-primary"
             >
-              <option value="day">Último dia</option>
-              <option value="week">Última semana</option>
-              <option value="month">Último mês</option>
-              <option value="custom">Personalizado</option>
-            </select>
+              Atualizando métricas
+            </Badge>
+          )}
+          <div className="w-[145px] space-y-2">
+            <Label>Período</Label>
+            <Select value={period} onValueChange={value => setPeriod(value as PeriodKey)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent align="end">
+                <SelectItem value="day">Hoje</SelectItem>
+                <SelectItem value="week">Semana</SelectItem>
+                <SelectItem value="month">Mês</SelectItem>
+                <SelectItem value="custom">Personalizado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           {period === 'custom' && (
             <>
-              <div>
-                <label className="mb-1 block text-xs text-base-content/55">Início</label>
-                <input
-                  className="input input-sm h-9 text-xs"
+              <div className="w-[145px] space-y-2">
+                <Label htmlFor="start-date">Início</Label>
+                <Input
+                  id="start-date"
                   type="date"
                   value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
+                  onChange={event => setStartDate(event.target.value)}
                 />
               </div>
-              <div>
-                <label className="mb-1 block text-xs text-base-content/55">Fim</label>
-                <input
-                  className="input input-sm h-9 text-xs"
+              <div className="w-[145px] space-y-2">
+                <Label htmlFor="end-date">Fim</Label>
+                <Input
+                  id="end-date"
                   type="date"
                   value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
+                  onChange={event => setEndDate(event.target.value)}
                 />
               </div>
             </>
@@ -170,330 +235,225 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="stat-grid">
-        <div className="card bg-base-300 stat-card">
-          <div className="stat-card-label">Oportunidades</div>
-          <div className="stat-card-value">{pipeline.total_opportunities}</div>
-        </div>
-        <div className="card bg-base-300 stat-card">
-          <div className="stat-card-label">Leads</div>
-          <div className="stat-card-value">{pipeline.total_leads}</div>
-        </div>
-        <div className="card bg-base-300 stat-card">
-          <div className="stat-card-label">Ganhas</div>
-          <div className="stat-card-value text-success">{pipeline.won}</div>
-        </div>
-        <div className="card bg-base-300 stat-card">
-          <div className="stat-card-label">Receita Total</div>
-          <div
-            className="stat-card-value stat-card-value--fit gradient-text"
-            title={formatCurrency(pipeline.total_revenue)}
-          >
-            {formatCurrency(pipeline.total_revenue)}
-          </div>
-        </div>
-        <div className="card bg-base-300 stat-card">
-          <div className="stat-card-label">Novos no Período</div>
-          <div className="stat-card-value">{currentPeriodCount}</div>
-          {monthChange !== 0 && (
-            <div className={`stat-card-change ${monthChange > 0 ? 'text-success' : 'text-error'}`}>
-              {monthChange > 0 ? '+' : ''}
-              {monthChange}% vs período anterior
-            </div>
-          )}
-        </div>
-        <div className="card bg-base-300 stat-card">
-          <div className="stat-card-label">Taxa de Conversão</div>
-          <div
-            className={`stat-card-value ${conversionRate >= 50 ? 'text-success' : 'text-warning'}`}
-          >
-            {conversionRate}%
-          </div>
-          <div className="stat-card-change text-base-content/50">
-            {pipeline.won} de {pipeline.total_opportunities}
-          </div>
-        </div>
+      <div
+        className={`grid gap-4 transition-opacity sm:grid-cols-2 xl:grid-cols-6 ${
+          isDashboardFetching ? 'opacity-70' : 'opacity-100'
+        }`}
+      >
+        <MetricCard label="Oportunidades" value={pipeline.total_opportunities} />
+        <MetricCard label="Leads" value={pipeline.total_leads} />
+        <MetricCard label="Ganhas" value={pipeline.won} tone="success" />
+        <MetricCard
+          label="Receita total"
+          value={formatCurrency(pipeline.total_revenue)}
+          tone="success"
+        />
+        <MetricCard
+          label="Novos"
+          value={currentPeriodCount}
+          detail={`${monthChange >= 0 ? '+' : ''}${monthChange}% vs período anterior`}
+        />
+        <MetricCard
+          label="Conversão"
+          value={`${conversionRate}%`}
+          tone={conversionRate >= 50 ? 'success' : 'warning'}
+        />
       </div>
 
-      <div className={isManager ? 'grid grid-cols-1 lg:grid-cols-2 gap-6' : ''}>
-        {/* Pipeline Stages */}
-        <div className="card bg-base-300">
-          <div className="card-body">
-            <h2 className="text-base font-semibold mb-4">Pipeline por Estágio</h2>
-            <div className="flex flex-col gap-3">
-              {stages.map(stage => {
-                const maxCount = Math.max(...stages.map(s => s.count), 1);
-                const pct = (stage.count / maxCount) * 100;
-                return (
-                  <div key={stage.id}>
-                    <div className="flex justify-between mb-1.5">
-                      <span className="text-sm font-medium">
-                        {stage.name}
-                        {stage.is_won && (
-                          <span className="text-success ml-2 inline-flex">
-                            <Check size={14} />
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-xs text-base-content/50">
-                        {stage.count} · {formatCurrency(stage.revenue)}
-                      </span>
+      <div
+        className={`grid gap-6 transition-opacity lg:grid-cols-[1.4fr_1fr] ${
+          isDashboardFetching ? 'opacity-70' : 'opacity-100'
+        }`}
+      >
+        <Card>
+          <CardHeader>
+            <CardTitle>Pipeline por estágio</CardTitle>
+            <CardDescription>Volume e receita em cada etapa comercial.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {stages.map(stage => {
+              const value = Math.round((stage.count / maxStageCount) * 100);
+              return (
+                <div key={stage.id} className="space-y-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      {stage.name}
+                      {stage.is_won && <Check className="size-4 text-success" />}
                     </div>
-                    <div className="h-1.5 rounded-full bg-white/[0.06]">
-                      <div
-                        className={`h-full rounded-sm transition-[width] duration-500 ease-out ${
-                          stage.is_won ? 'bg-success' : 'bg-linear-to-r from-secondary to-primary'
-                        }`}
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {stage.count} · {formatCurrency(stage.revenue)}
+                    </span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
+                  <Progress
+                    value={value}
+                    indicatorClassName={stage.is_won ? 'accent-success' : undefined}
+                  />
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
 
-        {/* Conversion Funnel (Manager Only) */}
-        {isManager && (
-          <div className="card bg-base-300">
-            <div className="card-body">
-              <h2 className="text-base font-semibold mb-4">Funil de Conversão</h2>
-              <div className="flex flex-col gap-2">
-                {stages.map((stage, i) => {
-                  const totalInPipeline = stages.reduce((s, st) => s + st.count, 0);
-                  const width =
-                    totalInPipeline > 0 ? Math.max((stage.count / totalInPipeline) * 100, 5) : 5;
+        <Card>
+          <CardHeader>
+            <CardTitle>Resumo do funil</CardTitle>
+            <CardDescription>Totais agregados para operação.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total em pipeline</span>
+              <span className="font-semibold">
+                {stages.reduce((sum, stage) => sum + stage.count, 0)}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Contatos</span>
+              <span className="font-semibold">{total_contacts}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Perdidas</span>
+              <span className="font-semibold text-destructive">{pipeline.lost}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Receita potencial</span>
+              <span className="font-semibold text-success">
+                {formatCurrency(stages.reduce((sum, stage) => sum + stage.revenue, 0))}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {isManager && advancedData && (
+        <div
+          className={`space-y-6 transition-opacity ${isAdvancedFetching ? 'opacity-70' : 'opacity-100'}`}
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle>Performance por vendedor</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Vendedor</TableHead>
+                    <TableHead>Total</TableHead>
+                    <TableHead>Ganhas</TableHead>
+                    <TableHead>Perdidas</TableHead>
+                    <TableHead>Conversão</TableHead>
+                    <TableHead>Receita</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(advancedData.vendor_performance ?? []).map(vendor => (
+                    <TableRow key={vendor.user_id}>
+                      <TableCell className="font-medium">{vendor.name}</TableCell>
+                      <TableCell>{vendor.total}</TableCell>
+                      <TableCell className="text-success">{vendor.won}</TableCell>
+                      <TableCell className="text-destructive">{vendor.lost}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            vendor.conversion >= 50
+                              ? 'success'
+                              : vendor.conversion >= 25
+                                ? 'warning'
+                                : 'destructive'
+                          }
+                        >
+                          {vendor.conversion}%
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-success">
+                        {formatCurrency(vendor.revenue)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Origem dos leads</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {(advancedData.origin_breakdown ?? []).map(origin => {
+                  const max = Math.max(
+                    ...(advancedData.origin_breakdown ?? []).map(item => item.count),
+                    1
+                  );
                   return (
-                    <div key={stage.id} className="flex items-center gap-3">
-                      <div
-                        className={`flex h-8 min-w-10 items-center justify-center rounded text-xs font-semibold text-white transition-[width] duration-500 ease-out ${
-                          stage.is_won ? 'bg-success' : 'bg-primary'
-                        }`}
-                        style={{
-                          width: `${width}%`,
-                          opacity: stage.is_won
-                            ? 1
-                            : 0.45 + (1 - i / Math.max(stages.length, 1)) * 0.55,
-                        }}
-                      >
-                        {stage.count}
+                    <div key={origin.source_id ?? 'none'} className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>{origin.name}</span>
+                        <span className="text-muted-foreground">{origin.count}</span>
                       </div>
-                      <span className="text-xs text-base-content/50 whitespace-nowrap">
-                        {stage.name}
-                      </span>
+                      <Progress value={Math.round((origin.count / max) * 100)} />
                     </div>
                   );
                 })}
-              </div>
+                {(advancedData.origin_breakdown ?? []).length === 0 && (
+                  <p className="text-sm text-muted-foreground">Sem dados de origem</p>
+                )}
+              </CardContent>
+            </Card>
 
-              <div className="mt-5 rounded-lg bg-white/[0.03] border border-white/[0.06] p-3">
-                <div className="flex justify-between text-xs">
-                  <span className="text-base-content/50">Total em pipeline</span>
-                  <span className="font-semibold">{stages.reduce((s, st) => s + st.count, 0)}</span>
-                </div>
-                <div className="flex justify-between text-xs mt-1.5">
-                  <span className="text-base-content/50">Contatos</span>
-                  <span className="font-semibold">{total_contacts}</span>
-                </div>
-                <div className="flex justify-between text-xs mt-1.5">
-                  <span className="text-base-content/50">Receita potencial</span>
-                  <span className="text-success font-semibold">
-                    {formatCurrency(stages.reduce((s, st) => s + st.revenue, 0))}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Advanced Manager Panels */}
-      {isManager && advancedData && (
-        <>
-          {/* Vendor Performance Table */}
-          <div className="card bg-base-300 mt-6">
-            <div className="card-body">
-              <h2 className="text-base font-semibold mb-4">Performance por Vendedor</h2>
-              <div className="table-container">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Vendedor</th>
-                      <th>Total</th>
-                      <th>Ganhas</th>
-                      <th>Perdidas</th>
-                      <th>Conversão</th>
-                      <th>Receita</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(advancedData.vendor_performance ?? []).map(v => (
-                      <tr key={v.user_id}>
-                        <td className="font-medium">{v.name}</td>
-                        <td>{v.total}</td>
-                        <td className="text-success">{v.won}</td>
-                        <td className="text-error">{v.lost}</td>
-                        <td>
-                          <span
-                            className={
-                              v.conversion >= 50
-                                ? 'text-success'
-                                : v.conversion >= 25
-                                  ? 'text-warning'
-                                  : 'text-error'
-                            }
-                          >
-                            {v.conversion}%
-                          </span>
-                        </td>
-                        <td className="text-success font-mono">{formatCurrency(v.revenue)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-            {/* Origin Breakdown */}
-            <div className="card bg-base-300">
-              <div className="card-body">
-                <h2 className="text-base font-semibold mb-4">Origem dos Leads</h2>
-                <div className="flex flex-col gap-2">
-                  {(advancedData.origin_breakdown ?? []).map((o, i) => {
-                    const maxCount = Math.max(
-                      ...(advancedData.origin_breakdown ?? []).map(x => x.count),
-                      1
-                    );
-                    const pct = (o.count / maxCount) * 100;
-                    return (
-                      <div key={o.source_id ?? 'none'}>
-                        <div className="flex justify-between mb-1">
-                          <span className="text-sm">{o.name}</span>
-                          <span className="text-xs text-base-content/50">{o.count}</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-white/[0.06]">
-                          <div
-                            className="h-full rounded-sm bg-primary transition-[width] duration-500 ease-out"
-                            style={{
-                              width: `${pct}%`,
-                              opacity: 0.5 + (i % 3) * 0.15,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {(advancedData.origin_breakdown ?? []).length === 0 && (
-                    <p className="text-sm text-base-content/50">Sem dados de origem</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Leads Over Time */}
-            <div className="card bg-base-300">
-              <div className="card-body">
-                <h2 className="text-base font-semibold mb-4">Evolução de Leads</h2>
-                <div className="flex items-end gap-2 h-[150px]">
-                  {(advancedData.leads_over_time ?? []).map(m => {
-                    const maxC = Math.max(
-                      ...(advancedData.leads_over_time ?? []).map(x => x.count),
-                      1
-                    );
-                    const hPct = (m.count / maxC) * 100;
-                    return (
-                      <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
-                        <span className="text-xs font-semibold">{m.count}</span>
-                        <div
-                          className="w-full rounded-t bg-linear-to-t from-primary to-secondary transition-[height] duration-500 ease-out"
-                          style={{ height: `${Math.max(hPct, 5)}%` }}
-                        />
-                        <span className="text-xs text-base-content/50 whitespace-nowrap">
-                          {m.label}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Revenue Forecast */}
-          {(advancedData.revenue_forecast ?? []).length > 0 && (
-            <div className="card bg-base-300 mt-6">
-              <div className="card-body">
-                <h2 className="text-base font-semibold mb-4">Previsão de Receita</h2>
-                <div className="flex gap-4 flex-wrap">
-                  {(advancedData.revenue_forecast ?? []).map(f => (
-                    <div
-                      key={f.month}
-                      className="flex-1 min-w-35 text-center rounded-xl bg-white/[0.03] border border-white/[0.06] p-4"
-                    >
-                      <div className="text-xs text-base-content/50 mb-1">{f.label}</div>
-                      <div className="text-lg font-bold text-success font-mono">
-                        {formatCurrency(f.revenue)}
-                      </div>
-                      <div className="text-xs text-base-content/50">{f.count} oportunidades</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Next Contacts (all users) */}
-      {nextContactsData && nextContactsData.items.length > 0 && (
-        <div className="card bg-base-300 mt-6">
-          <div className="card-body">
-            <h2 className="text-base font-semibold mb-4">
-              {isManager ? 'Leads Sem Contato Recente' : 'Próximos Contatos'}
-            </h2>
-            <div className="flex flex-col gap-2">
-              {nextContactsData.items.map(item => (
-                <div
-                  key={item.id}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer border ${
-                    item.days_since_contact > 7
-                      ? 'bg-error/[0.06] border-error/20'
-                      : 'bg-white/[0.02] border-white/[0.06]'
-                  }`}
-                >
-                  <div>
-                    <div className="text-sm font-medium">{item.name}</div>
-                    <div className="text-xs text-base-content/50">
-                      {item.contact_name} · {item.stage_name}
-                      {item.expected_revenue > 0 && ` · ${formatCurrency(item.expected_revenue)}`}
-                    </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Evolução de leads</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {(advancedData.leads_over_time ?? []).map(month => (
+                  <div
+                    key={month.month}
+                    className="flex items-center justify-between rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm"
+                  >
+                    <span>{month.label}</span>
+                    <Badge variant="outline">{month.count}</Badge>
                   </div>
-                  <div className="text-right">
-                    <div
-                      className={`text-xs font-semibold ${
-                        item.days_since_contact > 7
-                          ? 'text-error'
-                          : item.days_since_contact > 3
-                            ? 'text-warning'
-                            : 'text-success'
-                      }`}
-                    >
-                      {item.days_since_contact}d atrás
-                    </div>
-                    <div className="text-xs text-base-content/50">
-                      {item.phone || item.email_from}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </CardContent>
+            </Card>
           </div>
         </div>
       )}
+
+      <Card
+        className={`transition-opacity ${isNextContactsFetching ? 'opacity-70' : 'opacity-100'}`}
+      >
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Users className="size-4" /> Próximos contatos
+          </CardTitle>
+          <CardDescription>Leads que precisam de acompanhamento.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {(nextContactsData?.items ?? []).map(item => (
+              <div key={item.id} className="rounded-xl border border-border bg-muted/30 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium">{item.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {item.contact_name || item.email_from || item.phone}
+                    </p>
+                  </div>
+                  <Badge variant="outline">{item.stage_name}</Badge>
+                </div>
+                <p className="mt-3 flex items-center gap-1 text-xs text-muted-foreground">
+                  <TrendingUp className="size-3" /> {formatCurrency(item.expected_revenue)}
+                </p>
+              </div>
+            ))}
+            {(nextContactsData?.items ?? []).length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhum próximo contato no período.</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

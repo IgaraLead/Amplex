@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { apiFetch, setApiOrgSlug } from './api';
 
+const LAST_ORG_SLUG_KEY = 'amplex:last-org-slug';
+
 interface UserOrg {
   id: number;
   slug: string;
@@ -14,6 +16,7 @@ interface User {
   email: string;
   role: string;
   is_super_admin?: boolean;
+  force_password_change?: boolean;
   organizations?: UserOrg[];
 }
 
@@ -24,6 +27,10 @@ interface AuthState {
   fetchUser: () => Promise<void>;
   setCurrentOrg: (org: UserOrg | null) => void;
   logout: () => Promise<void>;
+}
+
+export function getLastOrgSlug() {
+  return window.localStorage.getItem(LAST_ORG_SLUG_KEY);
 }
 
 export const useAuth = create<AuthState>(set => ({
@@ -42,6 +49,7 @@ export const useAuth = create<AuthState>(set => ({
 
   setCurrentOrg: org => {
     setApiOrgSlug(org?.slug ?? null);
+    if (org) window.localStorage.setItem(LAST_ORG_SLUG_KEY, org.slug);
     set({ currentOrg: org });
   },
 
