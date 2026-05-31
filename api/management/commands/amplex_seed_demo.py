@@ -113,7 +113,7 @@ class Command(BaseCommand):
     help = "Populate the development database with deterministic fictional CRM data."
 
     def handle(self, *args, **options):
-        rng = Random(42)
+        rng = Random(42)  # noqa: S311 - deterministic demo data, not security-sensitive
         org = self._get_or_create_org("Dev Org", "dev")
         branch = self._get_or_create_org("Filial Sul", "filial-sul")
         stages = self._seed_stages(org)
