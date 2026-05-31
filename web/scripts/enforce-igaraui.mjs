@@ -6,15 +6,8 @@ const VALID_EXTENSIONS = new Set(['.tsx', '.jsx']);
 const INLINE_STYLE_PATTERN = /style=\{\{/;
 const HEX_PATTERN = /#[0-9a-fA-F]{3,8}\b/g;
 
-const INLINE_STYLE_ALLOWLIST = new Set([
-  'modules/dashboard/Dashboard.tsx',
-  'modules/leads/LeadDetail.tsx',
-  'modules/settings/Settings.tsx',
-  'shared/layout/AppLayout.tsx',
-  'shared/ui/Logo.tsx',
-]);
-
-const HEX_ALLOWLIST = new Set(['modules/leads/LeadDetail.tsx']);
+const INLINE_STYLE_ALLOWLIST = new Set();
+const HEX_ALLOWLIST = new Set();
 
 async function walk(dir) {
   const entries = await readdir(dir, { withFileTypes: true });

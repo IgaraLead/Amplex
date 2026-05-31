@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useAuth } from '@/shared/store';
 import Logo from '@/shared/ui/Logo';
-import { BRAND_NAME } from '@/shared/branding';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -12,13 +17,13 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError('');
     setLoading(true);
     try {
       const csrf = document.cookie.match(/(?:^|;\s*)amplex_csrf=([^;]*)/)?.[1] ?? '';
-      const res = await fetch('/amplex/api/auth/login', {
+      const response = await fetch('/amplex/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -27,10 +32,8 @@ export default function Login() {
         credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Credenciais inválidas');
-      }
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Credenciais inválidas');
       await fetchUser();
       navigate('/orgs');
     } catch (err: unknown) {
@@ -38,62 +41,63 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 pb-24 pt-6">
-      <div className="w-full max-w-md">
+    <div className="hero-gradient flex min-h-screen items-center justify-center px-4 pb-24 pt-6 text-foreground">
+      <div className="w-full max-w-md animate-fade-in">
         <div className="text-center">
-          <Logo size={56} className="mx-auto text-base-content" />
-          <h1 className="mt-6 text-center">
-            <span className="inline-block text-3xl font-semibold text-transparent bg-clip-text bg-gradient-to-r from-secondary to-primary">
-              Amplex
-            </span>
-          </h1>
-          <p className="mt-2 text-sm text-base-content/70">Acesse sua conta</p>
+          <Logo size={56} className="mx-auto text-primary" />
+          <h1 className="brand-text mt-6 text-3xl font-semibold">Amplex</h1>
+          <p className="mt-2 text-sm text-muted-foreground">O CRM da IgaraLead</p>
         </div>
 
-        <div className="card mt-8 w-full border border-base-300 bg-base-200 shadow-xl">
-          <div className="card-body p-8">
-            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-              <fieldset className="fieldset">
-                <label className="label">E-mail</label>
-                <input
-                  className="input w-full"
+        <Card className="mt-8 border-primary/20 bg-card/90 shadow-2xl backdrop-blur">
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
                   type="email"
                   required
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={event => setEmail(event.target.value)}
                   placeholder="seu@email.com"
                   autoComplete="email"
                   disabled={loading}
                 />
-              </fieldset>
-              <fieldset className="fieldset">
-                <label className="label">Senha</label>
-                <input
-                  className="input w-full"
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
                   type="password"
                   required
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  onChange={event => setPassword(event.target.value)}
+                  placeholder="Sua senha"
                   autoComplete="current-password"
                   disabled={loading}
                 />
-              </fieldset>
+              </div>
 
-              {error && <p className="text-error text-xs text-center">{error}</p>}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-              <button className="btn btn-primary w-full mt-2" type="submit" disabled={loading}>
+              <Button className="w-full" type="submit" disabled={loading}>
                 {loading ? 'Entrando...' : 'Entrar'}
-              </button>
+              </Button>
             </form>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <footer className="fixed bottom-0 left-0 right-0 p-4 text-center text-base-content/50 text-xs">
-          © {new Date().getFullYear()} {BRAND_NAME}. Todos os direitos reservados.
+        <footer className="fixed inset-x-0 bottom-0 p-4 text-center text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/80">© 2026 IgaraLead.</span>{' '}
+          <span>Todos os direitos reservados.</span>
         </footer>
       </div>
     </div>

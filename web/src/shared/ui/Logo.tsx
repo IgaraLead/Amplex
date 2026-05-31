@@ -1,10 +1,9 @@
 interface LogoProps {
   size?: number;
-  style?: React.CSSProperties;
   className?: string;
 }
 
-export default function Logo({ size = 32, style, className }: LogoProps) {
+export default function Logo({ size = 32, className }: LogoProps) {
   return (
     <svg
       width={size}
@@ -12,8 +11,8 @@ export default function Logo({ size = 32, style, className }: LogoProps) {
       viewBox="0 0 1025 1025"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      style={{ display: 'block', ...style }}
+      className={className ?? 'text-primary'}
+      aria-hidden="true"
     >
       <path
         d="M0 129C0 58.3076 57.3076 1 128 1H256V1025H128C57.3076 1025 0 967.692 0 897V129Z"

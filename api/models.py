@@ -26,6 +26,8 @@ class AmplexUser(models.Model):
     email = models.EmailField(max_length=255, unique=True, db_index=True)
     login = models.CharField(max_length=255, unique=True, db_index=True)
     password_hash = models.CharField(max_length=255, blank=True, default="")
+    force_password_change = models.BooleanField(default=False)
+    session_version = models.PositiveIntegerField(default=0)
     active = models.BooleanField(default=True)
     is_super_admin = models.BooleanField(default=False)
     is_internal = models.BooleanField(default=True)
@@ -91,6 +93,8 @@ class Stage(models.Model):
     name = models.CharField(max_length=128)
     sequence = models.IntegerField(default=10)
     is_won = models.BooleanField(default=False)
+    is_lost = models.BooleanField(default=False)
+    is_fixed = models.BooleanField(default=False)
 
     class Meta:
         db_table = "amplex_stages"
@@ -143,6 +147,20 @@ class LostReason(models.Model):
         return self.name
 
 
+class WonReason(models.Model):
+    org = models.ForeignKey(
+        AmplexOrganization, on_delete=models.CASCADE, related_name="won_reasons"
+    )
+    name = models.CharField(max_length=255)
+    active = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = "amplex_won_reasons"
+
+    def __str__(self):
+        return self.name
+
+
 class Lead(models.Model):
     org = models.ForeignKey(
         AmplexOrganization, on_delete=models.CASCADE, related_name="leads"
@@ -182,6 +200,9 @@ class Lead(models.Model):
     source = models.ForeignKey(Source, on_delete=models.SET_NULL, null=True, blank=True)
     lost_reason = models.ForeignKey(
         LostReason, on_delete=models.SET_NULL, null=True, blank=True
+    )
+    won_reason = models.ForeignKey(
+        WonReason, on_delete=models.SET_NULL, null=True, blank=True
     )
     tags = models.ManyToManyField(Tag, blank=True, related_name="leads")
 
@@ -241,10 +262,25 @@ class Activity(models.Model):
     summary = models.CharField(max_length=512, null=True, blank=True)
     note = models.TextField(null=True, blank=True)
     date_deadline = models.DateField(null=True, blank=True, db_index=True)
+    due_at = models.DateTimeField(null=True, blank=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = "amplex_activities"
+
+
+class ActivityReminder(models.Model):
+    activity = models.ForeignKey(
+        Activity, on_delete=models.CASCADE, related_name="reminders"
+    )
+    remind_at = models.DateTimeField(db_index=True)
+    offset_minutes = models.PositiveIntegerField()
+    dismissed_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "amplex_activity_reminders"
+        ordering = ["remind_at", "id"]
 
 
 class LeadAttachment(models.Model):

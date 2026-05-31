@@ -54,6 +54,7 @@ def create_refresh_token(user) -> str:
     payload = {
         "sub": str(user.id),
         "type": "refresh",
+        "session_version": int(user.session_version or 0),
         "exp": now + REFRESH_EXPIRE_DAYS * 86400,
         "iat": now,
     }
@@ -63,6 +64,9 @@ def create_refresh_token(user) -> str:
 def decode_refresh_token(token: str) -> dict:
     """Decode refresh token. Raises ValueError on failure."""
     try:
-        return jwt.decode(token, _HS256_SECRET, algorithms=["HS256"])
+        payload = jwt.decode(token, _HS256_SECRET, algorithms=["HS256"])
+        if payload.get("type") != "refresh":
+            raise ValueError("Not a refresh token")
+        return payload
     except JWTError as e:
         raise ValueError("Refresh token inválido") from e

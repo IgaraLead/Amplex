@@ -1,124 +1,144 @@
-import { useEffect, useState, useRef } from 'react';
-import { Outlet, NavLink, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, Navigate, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  Bell,
+  ChevronLeft,
+  Check,
+  Contact,
+  KanbanSquare,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Monitor,
+  Moon,
+  Palette,
+  Settings,
+  Shield,
+  Sun,
+  Target,
+  X,
+} from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { apiDelete, apiGet, apiPost } from '@/shared/api';
+import { AMPLEX_NAME } from '@/shared/branding';
 import { useAuth } from '@/shared/store';
-import { apiGet, apiPost, apiDelete } from '@/shared/api';
+import {
+  applyTheme,
+  getStoredTheme,
+  resolveTheme,
+  themeOptions,
+  type ThemeMode,
+} from '@/shared/theme';
 import Logo from '@/shared/ui/Logo';
-import { BRAND_NAME, BRAND_URL, AMPLEX_NAME } from '@/shared/branding';
-import { Check, X, Bell, Menu } from 'lucide-react';
 
 interface NavItem {
   to: string;
   label: string;
-  icon: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+interface NotificationItem {
+  id: string;
+  summary: string;
+  note: string;
+  date_deadline: string | null;
+  due_at: string | null;
+  remind_at: string | null;
+  offset_minutes: number | null;
+  state: 'overdue' | 'today' | 'planned';
+  activity_type: string;
+  user_name: string;
+  lead_id: number;
+  lead_name: string;
 }
 
 const mainItems: NavItem[] = [
-  { to: 'dashboard', label: 'Dashboard', icon: 'dashboard' },
-  { to: 'pipeline', label: 'Pipeline', icon: 'pipeline' },
-  { to: 'leads', label: 'Oportunidades', icon: 'leads' },
-  { to: 'contacts', label: 'Contatos', icon: 'contacts' },
-  { to: 'settings', label: 'Configurações', icon: 'settings' },
+  { to: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: 'pipeline', label: 'Pipeline', icon: KanbanSquare },
+  { to: 'leads', label: 'Oportunidades', icon: Target },
+  { to: 'contacts', label: 'Contatos', icon: Contact },
 ];
 
-function NavIcon({
-  name,
-  size = 18,
-  strokeWidth = 1.8,
-}: {
-  name: string;
-  size?: number;
-  strokeWidth?: number;
-}) {
-  const props = {
-    width: size,
-    height: size,
-    fill: 'none' as const,
-    stroke: 'currentColor',
-    strokeWidth,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-  };
-  switch (name) {
-    case 'dashboard':
-      return (
-        <svg {...props} viewBox="0 0 24 24">
-          <rect x="3" y="3" width="7" height="7" rx="1" />
-          <rect x="14" y="3" width="7" height="7" rx="1" />
-          <rect x="3" y="14" width="7" height="7" rx="1" />
-          <rect x="14" y="14" width="7" height="7" rx="1" />
-        </svg>
-      );
-    case 'pipeline':
-      return (
-        <svg {...props} viewBox="0 0 24 24">
-          <rect x="2" y="3" width="5" height="18" rx="1" />
-          <rect x="9.5" y="6" width="5" height="15" rx="1" />
-          <rect x="17" y="9" width="5" height="12" rx="1" />
-        </svg>
-      );
-    case 'leads':
-      return (
-        <svg {...props} viewBox="0 0 24 24">
-          <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-        </svg>
-      );
-    case 'contacts':
-      return (
-        <svg {...props} viewBox="0 0 24 24">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      );
-    case 'settings':
-      return (
-        <svg {...props} viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="3" />
-          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-        </svg>
-      );
-    default:
-      return null;
-  }
-}
+const notificationState: Record<
+  NotificationItem['state'],
+  { label: string; variant: 'destructive' | 'warning' | 'default' }
+> = {
+  overdue: { label: 'Atrasada', variant: 'destructive' },
+  today: { label: 'Hoje', variant: 'warning' },
+  planned: { label: 'Planejada', variant: 'default' },
+};
+
+const formatNotificationDate = (value?: string | null) =>
+  value
+    ? new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }).format(new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value))
+    : null;
+
+const formatReminderOffset = (minutes?: number | null) => {
+  if (!minutes) return null;
+  if (minutes === 10080) return '1 semana antes';
+  if (minutes >= 1440) return `${minutes / 1440} dias antes`;
+  if (minutes >= 60) return `${minutes / 60}h antes`;
+  return `${minutes} min antes`;
+};
 
 export default function AppLayout() {
   const { user, loading, fetchUser, logout, currentOrg, setCurrentOrg } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { slug } = useParams<{ slug: string }>();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const sidebarWidth = sidebarExpanded ? 260 : 60;
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [accountPanel, setAccountPanel] = useState<'main' | 'theme'>('main');
+  const [themeMode, setThemeMode] = useState<ThemeMode>(() => getStoredTheme());
+  const topbarActionsRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
+
+  useEffect(() => {
+    applyTheme(themeMode);
+    if (themeMode !== 'system') return;
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: light)');
+    const handleChange = () => applyTheme('system');
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [themeMode]);
 
   useEffect(() => {
     if (!user || !slug) return;
     if (currentOrg?.slug === slug) return;
-    const org = user.organizations?.find(o => o.slug === slug);
+    const org = user.organizations?.find(item => item.slug === slug);
     if (org) {
       setCurrentOrg(org);
-    } else {
-      navigate('/orgs', { replace: true });
+      return;
     }
+    navigate('/orgs', { replace: true });
   }, [user, slug, currentOrg?.slug, setCurrentOrg, navigate]);
 
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      if (topbarActionsRef.current && !topbarActionsRef.current.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+        setAccountOpen(false);
+        setAccountPanel('main');
+      }
+    };
+    if (notificationsOpen || accountOpen) document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [notificationsOpen, accountOpen]);
+
   const orgBase = slug ? `/id/${slug}` : '';
-
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const notifRef = useRef<HTMLDivElement>(null);
-  const queryClient = useQueryClient();
-
-  interface NotificationItem {
-    id: number;
-    summary: string;
-    note: string;
-    date_deadline: string | null;
-    state: 'overdue' | 'today' | 'planned';
-    activity_type: string;
-    user_name: string;
-    lead_id: number;
-    lead_name: string;
-  }
 
   const { data: notifData } = useQuery<{
     items: NotificationItem[];
@@ -126,190 +146,367 @@ export default function AppLayout() {
     overdue_count: number;
     today_count: number;
   }>({
-    queryKey: ['notifications'],
+    queryKey: ['notifications', slug],
     queryFn: () => apiGet('/crm/notifications'),
     refetchInterval: 60000,
+    enabled: Boolean(user && slug),
   });
 
   const completeMutation = useMutation({
-    mutationFn: (id: number) => apiPost(`/crm/notifications/${id}/done`, {}),
+    mutationFn: (id: string) => apiPost(`/crm/notifications/${id}/done`, {}),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
   const dismissMutation = useMutation({
-    mutationFn: (id: number) => apiDelete(`/crm/notifications/${id}`),
+    mutationFn: (id: string) => apiDelete(`/crm/notifications/${id}`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setNotificationsOpen(false);
-      }
-    }
-    if (notificationsOpen) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [notificationsOpen]);
+  const badgeCount = notifData?.badge_count ?? 0;
+  const isExpanded = sidebarExpanded;
+  const organizations = user?.organizations ?? [];
+  const canSwitchOrg = organizations.length > 1;
+  const currentOrgPath = slug
+    ? location.pathname.replace(`/id/${slug}`, '') || '/dashboard'
+    : '/dashboard';
 
-  const badgeCount = notifData?.badge_count || 0;
+  const handleSwitchOrg = (org: (typeof organizations)[number]) => {
+    setCurrentOrg(org);
+    setAccountOpen(false);
+    setAccountPanel('main');
+    queryClient.clear();
+    navigate(`/id/${org.slug}${currentOrgPath}`);
+  };
 
-  useEffect(() => {
-    fetchUser();
-  }, [fetchUser]);
+  const handleSetTheme = (mode: ThemeMode) => {
+    setThemeMode(mode);
+    applyTheme(mode);
+  };
+
+  const ThemeIcon =
+    resolveTheme(themeMode) === 'light' ? Sun : themeMode === 'system' ? Monitor : Moon;
+  const isPasswordChangeRoute = location.pathname.endsWith('/password/change');
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="card bg-base-300">
-          <div className="card-body">
-            <p>Carregando...</p>
-          </div>
+      <div className="min-h-screen w-full overflow-x-hidden bg-background text-foreground">
+        <div className="fixed left-0 top-0 z-50 flex h-14 w-14 items-center justify-center bg-card">
+          <Logo size={30} />
         </div>
+        <header className="fixed left-14 right-0 top-0 z-40 flex h-14 items-center gap-3 bg-card px-4 py-2.5">
+          <div className="min-w-0 shrink-0">
+            <p className="font-sans text-sm font-semibold leading-none text-foreground">
+              {AMPLEX_NAME}
+            </p>
+            <p className="mt-1 hidden font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:block">
+              O CRM da IgaraLead
+            </p>
+          </div>
+        </header>
+        <main className="ml-14 flex min-h-screen w-[calc(100%_-_3.5rem)] items-center justify-center px-4 pt-14">
+          <Card className="w-full max-w-sm">
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              Carregando...
+            </CardContent>
+          </Card>
+        </main>
       </div>
     );
   }
 
   if (!user) return <Navigate to="/login" replace />;
+  if (user.force_password_change && !location.pathname.endsWith('/password/change')) {
+    return <Navigate to={`/id/${slug}/password/change`} replace />;
+  }
 
   return (
-    <div className="min-h-screen bg-base-100">
-      <header className="fixed inset-x-0 top-0 z-40 h-[60px] border-b border-white/[0.05] bg-base-100/95 px-6 backdrop-blur-sm">
-        <div className="mx-auto flex h-full max-w-[1440px] items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <Logo size={28} />
-            </div>
-            <span className="rounded-xl border border-white/[0.12] bg-white/[0.08] px-3 py-1.5 text-sm font-medium text-base-content">
-              {AMPLEX_NAME}
-            </span>
-          </div>
+    <div className="min-h-screen w-full overflow-x-hidden bg-background text-foreground">
+      <div className="fixed left-0 top-0 z-50 flex h-14 w-14 items-center justify-center bg-card">
+        <Logo size={30} />
+      </div>
 
-          <div className="relative flex items-center gap-2" ref={notifRef}>
-            <span className="badge badge-info badge-sm shrink-0 text-[0.65rem]">
-              {user.role === 'admin' ? 'Gestor' : 'Vendedor'}
-            </span>
-            <button
-              type="button"
-              onClick={() => setNotificationsOpen(!notificationsOpen)}
-              className="btn btn-ghost btn-sm relative h-8 min-h-0 rounded-lg border border-base-300 px-2 text-base-content/60 hover:text-base-content"
-              title="Notificações"
-            >
-              <Bell size={16} strokeWidth={1.8} />
-              {badgeCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-error px-0.5 text-[0.55rem] font-bold leading-none text-error-content">
-                  {badgeCount > 9 ? '9+' : badgeCount}
-                </span>
-              )}
-            </button>
-            <div className="hidden text-right md:block">
-              <p className="text-xs font-medium text-base-content/70">{user.name}</p>
-              <p className="text-[11px] text-base-content/45">{currentOrg?.name || ''}</p>
-            </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-primary/30 bg-primary/20 text-[11px] font-bold text-primary">
-              {user.name.slice(0, 2).toUpperCase()}
-            </div>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => logout().then(() => navigate('/login'))}
-            >
-              Sair
-            </button>
-            {user.is_super_admin && (
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm"
-                onClick={() => navigate('/admin')}
-              >
-                Admin Global
-              </button>
+      <header className="fixed left-14 right-0 top-0 z-40 flex h-14 items-center gap-3 bg-card px-4 py-2.5">
+        <div className="min-w-0 shrink-0">
+          <p className="font-sans text-sm font-semibold leading-none text-foreground">
+            {AMPLEX_NAME}
+          </p>
+          <p className="mt-1 hidden font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground sm:block">
+            O CRM da IgaraLead
+          </p>
+        </div>
+
+        <div className="ml-auto flex min-w-0 items-center gap-2" ref={topbarActionsRef}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="relative"
+            aria-label="Abrir notificações"
+            onClick={() => {
+              setNotificationsOpen(value => !value);
+              setAccountOpen(false);
+              setAccountPanel('main');
+            }}
+          >
+            <Bell className="size-4" />
+            {badgeCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-1 text-[0.55rem] font-bold leading-none text-destructive-foreground">
+                {badgeCount > 9 ? '9+' : badgeCount}
+              </span>
             )}
-
-            {notificationsOpen && (
-              <div className="absolute right-0 top-[calc(100%+8px)] z-[100] max-h-[480px] w-[min(380px,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-base-300/80 bg-base-200/95 shadow-2xl backdrop-blur-xl">
-                <div className="flex items-center justify-between border-b border-base-300/50 px-4 py-3">
-                  <span className="text-sm font-semibold text-base-content">Notificações</span>
-                  {notifData && notifData.overdue_count > 0 && (
-                    <span className="text-xs font-semibold text-error">
-                      {notifData.overdue_count} atrasada{notifData.overdue_count > 1 ? 's' : ''}
-                    </span>
+          </Button>
+          <button
+            type="button"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/15 text-[11px] font-bold text-primary transition hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Abrir menu da conta"
+            aria-expanded={accountOpen}
+            onClick={() => {
+              setAccountOpen(value => {
+                const next = !value;
+                if (!next) setAccountPanel('main');
+                return next;
+              });
+              setNotificationsOpen(false);
+            }}
+          >
+            {user.name.slice(0, 2).toUpperCase()}
+          </button>
+          {accountOpen && (
+            <Card className="absolute right-2 top-[calc(100%+8px)] z-50 w-[min(320px,calc(100vw-2rem))] gap-0 overflow-hidden border-border/80 bg-popover py-0 shadow-2xl">
+              <div
+                className={cn(
+                  'flex w-[200%] transition-transform duration-300 ease-in-out',
+                  accountPanel === 'theme' ? '-translate-x-1/2' : 'translate-x-0'
+                )}
+              >
+                <div className="w-1/2 shrink-0">
+                  <div className="border-b border-border/70 px-4 py-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/15 text-xs font-bold text-primary">
+                        {user.name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-popover-foreground">
+                          {user.name}
+                        </p>
+                        <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Badge
+                            variant="outline"
+                            className="border-primary/30 bg-primary/10 text-primary"
+                          >
+                            {user.role === 'admin' ? 'Gestor' : 'Vendedor'}
+                          </Badge>
+                          {user.is_super_admin && <Badge variant="secondary">Super admin</Badge>}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="mt-3 truncate text-xs text-muted-foreground">
+                      {currentOrg?.name ?? 'Sem organização selecionada'}
+                    </p>
+                  </div>
+                  {canSwitchOrg && (
+                    <div className="border-b border-border/70 px-2 py-2">
+                      <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        Trocar organização
+                      </p>
+                      <div className="space-y-1">
+                        {organizations.map(org => (
+                          <Button
+                            key={org.id}
+                            type="button"
+                            variant={org.slug === currentOrg?.slug ? 'secondary' : 'ghost'}
+                            className="h-auto w-full justify-start px-2 py-2 text-left"
+                            onClick={() => handleSwitchOrg(org)}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-xs font-medium">{org.name}</span>
+                              <span className="block truncate text-[11px] text-muted-foreground">
+                                {org.role === 'admin' ? 'Administrador' : 'Membro'}
+                              </span>
+                            </span>
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
                   )}
+                  <div className="p-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => setAccountPanel('theme')}
+                    >
+                      <Palette className="size-4" />
+                      Tema
+                      <ThemeIcon className="ml-auto size-4 text-muted-foreground" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setAccountOpen(false);
+                        setAccountPanel('main');
+                        navigate(`${orgBase}/settings`);
+                      }}
+                    >
+                      <Settings className="size-4" />
+                      Configurações
+                    </Button>
+                    {user.is_super_admin && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="w-full justify-start"
+                        onClick={() => {
+                          setAccountOpen(false);
+                          setAccountPanel('main');
+                          navigate(`${orgBase}/admin`);
+                        }}
+                      >
+                        <Shield className="size-4" />
+                        Admin global
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="w-full justify-start text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => logout().then(() => navigate('/login'))}
+                    >
+                      <LogOut className="size-4" />
+                      Sair
+                    </Button>
+                  </div>
                 </div>
-                {!notifData || !notifData.items || notifData.items.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-sm text-base-content/50">
+
+                <div className="w-1/2 shrink-0">
+                  <div className="flex items-center gap-2 border-b border-border/70 px-2 py-3">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setAccountPanel('main')}
+                      aria-label="Voltar"
+                    >
+                      <ChevronLeft className="size-4" />
+                    </Button>
+                    <div>
+                      <p className="text-sm font-semibold text-popover-foreground">Tema</p>
+                      <p className="text-xs text-muted-foreground">
+                        Escolha a aparência da interface
+                      </p>
+                    </div>
+                  </div>
+                  <div className="space-y-1 p-2">
+                    {themeOptions.map(option => {
+                      const Icon =
+                        option.value === 'light' ? Sun : option.value === 'dark' ? Moon : Monitor;
+                      return (
+                        <Button
+                          key={option.value}
+                          type="button"
+                          variant={themeMode === option.value ? 'secondary' : 'ghost'}
+                          className="h-auto w-full justify-start px-2 py-2 text-left"
+                          onClick={() => handleSetTheme(option.value)}
+                        >
+                          <Icon className="size-4" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-medium">
+                              {option.label}
+                            </span>
+                            <span className="block truncate text-[11px] text-muted-foreground">
+                              {option.description}
+                            </span>
+                          </span>
+                          {themeMode === option.value && <Check className="size-4 text-primary" />}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {notificationsOpen && (
+            <Card className="absolute right-2 top-[calc(100%+8px)] z-50 max-h-[480px] w-[min(380px,calc(100vw-2rem))] overflow-hidden border-border/80 bg-popover/95 shadow-2xl backdrop-blur-xl">
+              <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-popover-foreground">Notificações</p>
+                  <p className="text-xs text-muted-foreground">Follow-ups e atividades pendentes</p>
+                </div>
+                <Badge variant="outline">{badgeCount}</Badge>
+              </div>
+              <div className="max-h-[400px] overflow-y-auto p-2">
+                {!notifData?.items?.length ? (
+                  <div className="px-4 py-8 text-center text-sm text-muted-foreground">
                     Nenhuma notificação pendente
                   </div>
                 ) : (
-                  <div className="p-2">
-                    {notifData.items.map(notif => {
-                      const stateLabel =
-                        notif.state === 'overdue'
-                          ? 'Atrasada'
-                          : notif.state === 'today'
-                            ? 'Hoje'
-                            : notif.date_deadline
-                              ? new Date(notif.date_deadline + 'T12:00:00').toLocaleDateString(
-                                  'pt-BR'
-                                )
-                              : '';
-                      const badgeClass =
-                        notif.state === 'overdue'
-                          ? 'badge-error'
-                          : notif.state === 'today'
-                            ? 'badge-warning'
-                            : 'badge-info';
+                  <div className="space-y-2">
+                    {notifData.items.map(item => {
+                      const state = notificationState[item.state];
+                      const dueLabel = formatNotificationDate(item.due_at ?? item.date_deadline);
+                      const reminderLabel = formatReminderOffset(item.offset_minutes);
                       return (
                         <div
-                          key={notif.id}
-                          className={[
-                            'mb-1.5 rounded-lg border px-3 py-2.5',
-                            notif.state === 'overdue'
-                              ? 'border-error/20 bg-error/10'
-                              : 'border-base-300/50 bg-base-100/30',
-                          ].join(' ')}
+                          key={item.id}
+                          className="rounded-xl border border-border/70 bg-card/80 p-3"
                         >
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="mb-0.5 text-sm font-semibold text-base-content">
-                                {notif.summary || 'Retorno agendado'}
-                              </div>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-foreground">
+                                {item.summary}
+                              </p>
                               <button
                                 type="button"
-                                className="text-left text-xs text-base-content/50 underline decoration-base-content/20 hover:text-primary"
+                                className="mt-0.5 text-left text-xs text-muted-foreground underline-offset-4 hover:text-primary hover:underline"
                                 onClick={() => {
-                                  navigate(`${orgBase}/leads/${notif.lead_id}`);
                                   setNotificationsOpen(false);
+                                  navigate(`${orgBase}/leads/${item.lead_id}`);
                                 }}
                               >
-                                {notif.lead_name}
-                              </button>
-                              <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                                <span className={`badge badge-sm ${badgeClass}`}>{stateLabel}</span>
-                                {notif.activity_type && (
-                                  <span className="text-[0.65rem] text-base-content/45">
-                                    {notif.activity_type}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex shrink-0 gap-1">
-                              <button
-                                type="button"
-                                title="Concluir"
-                                onClick={() => completeMutation.mutate(notif.id)}
-                                className="btn btn-ghost btn-xs h-7 min-h-0 rounded-md border border-success/30 bg-success/10 text-success"
-                              >
-                                <Check size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                title="Dispensar"
-                                onClick={() => dismissMutation.mutate(notif.id)}
-                                className="btn btn-ghost btn-xs h-7 min-h-0 rounded-md border border-base-300 text-base-content/50"
-                              >
-                                <X size={13} />
+                                {item.lead_name}
                               </button>
                             </div>
+                            <Badge variant={state.variant} size="sm">
+                              {state.label}
+                            </Badge>
+                          </div>
+                          {item.note && (
+                            <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">
+                              {item.note}
+                            </p>
+                          )}
+                          {(dueLabel || reminderLabel) && (
+                            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                              {dueLabel && <p>Prazo: {dueLabel}</p>}
+                              {reminderLabel && <p>Aviso: {reminderLabel}</p>}
+                            </div>
+                          )}
+                          <div className="mt-3 flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-7 border-success/30 bg-success/10 text-success hover:bg-success/15 hover:text-success"
+                              onClick={() => completeMutation.mutate(item.id)}
+                            >
+                              <Check className="size-3.5" />
+                              Concluir
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7"
+                              onClick={() => dismissMutation.mutate(item.id)}
+                            >
+                              <X className="size-3.5" />
+                              Dispensar
+                            </Button>
                           </div>
                         </div>
                       );
@@ -317,93 +514,98 @@ export default function AppLayout() {
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </Card>
+          )}
         </div>
       </header>
 
       <aside
-        className="fixed bottom-0 left-0 top-[60px] z-30 border-r border-white/[0.05] bg-base-200 transition-[width] duration-300 ease-in-out"
-        style={{ width: sidebarWidth }}
+        className={cn(
+          'fixed bottom-0 left-0 top-14 z-30 bg-card transition-[width] duration-300 ease-in-out',
+          isExpanded ? 'w-[220px]' : 'w-14 lg:w-14'
+        )}
       >
-        <div className="flex h-full flex-col px-2 py-3">
-          <button
-            type="button"
-            onClick={() => setSidebarExpanded(prev => !prev)}
-            className="mb-2 flex w-full items-center gap-2.5 overflow-hidden rounded-lg px-2.5 py-2 text-base-content/40 transition-colors hover:bg-white/[0.06] hover:text-base-content"
-          >
-            <Menu size={17} strokeWidth={1.8} className="shrink-0" />
-            <span
-              className={`overflow-hidden text-xs font-medium uppercase tracking-widest transition-[max-width,opacity] duration-200 ease-in-out ${
-                sidebarExpanded ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
-              }`}
+        <div className="flex h-full flex-col overflow-hidden">
+          <nav className="flex flex-1 flex-col gap-0.5 px-2 pb-3 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              className={cn(
+                'mb-2 h-10 w-full justify-start overflow-hidden rounded-lg p-0 text-muted-foreground hover:bg-accent/40 hover:text-foreground',
+                isExpanded ? 'pr-2.5' : 'pr-0'
+              )}
+              onClick={() => setSidebarExpanded(value => !value)}
+              aria-label={isExpanded ? 'Recolher menu' : 'Expandir menu'}
             >
-              Menu
-            </span>
-          </button>
-
-          <nav className="flex flex-1 flex-col gap-1 overflow-y-auto">
-            {mainItems.map(item => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                title={sidebarExpanded ? undefined : item.label}
-                className={({ isActive }) =>
-                  [
-                    'flex w-full items-center gap-2.5 overflow-hidden whitespace-nowrap rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-base-content/55 hover:bg-white/[0.05] hover:text-base-content',
-                  ].join(' ')
-                }
+              <span className="flex size-10 shrink-0 items-center justify-center">
+                <Menu className="size-4" />
+              </span>
+              <span
+                className={cn(
+                  'text-xs font-semibold tracking-[0.16em] transition-all',
+                  isExpanded ? 'max-w-32 opacity-100' : 'max-w-0 opacity-0'
+                )}
               >
-                <NavIcon
-                  name={item.icon}
-                  size={sidebarExpanded ? 18 : 22}
-                  strokeWidth={sidebarExpanded ? 1.8 : 2}
-                />
-                <span
-                  className={`flex-1 overflow-hidden text-left transition-[max-width,opacity] duration-200 ease-in-out ${
-                    sidebarExpanded ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
-                  }`}
-                >
-                  {item.label}
-                </span>
-              </NavLink>
-            ))}
-          </nav>
+                MENU
+              </span>
+            </Button>
 
-          <div className="mt-2 border-t border-white/[0.05] px-2 py-3 text-[11px] text-base-content/35">
-            <span
-              className={`block overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-200 ${
-                sidebarExpanded ? 'max-w-[220px] opacity-100' : 'max-w-0 opacity-0'
-              }`}
-            >
-              {currentOrg?.name || ''}
-            </span>
-          </div>
+            {mainItems.map(item => {
+              const Icon = item.icon;
+              return (
+                <NavLink key={item.to} to={`${orgBase}/${item.to}`}>
+                  {({ isActive }) => (
+                    <span
+                      className={cn(
+                        'flex h-10 items-center overflow-hidden rounded-lg p-0 text-sm transition-colors',
+                        isExpanded ? 'pr-2.5' : 'pr-0',
+                        isActive
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-accent/40 hover:text-foreground'
+                      )}
+                    >
+                      <span className="flex size-10 shrink-0 items-center justify-center">
+                        <Icon className="size-4" />
+                      </span>
+                      <span
+                        className={cn(
+                          'whitespace-nowrap transition-all',
+                          isExpanded ? 'max-w-40 opacity-100' : 'max-w-0 opacity-0'
+                        )}
+                      >
+                        {item.label}
+                      </span>
+                    </span>
+                  )}
+                </NavLink>
+              );
+            })}
+          </nav>
         </div>
       </aside>
 
       <main
-        className="main-content mt-[60px] flex min-h-[calc(100vh-60px)] flex-1 flex-col overflow-y-auto animate-fade-in transition-[margin-left] duration-300 ease-in-out"
-        style={{ marginLeft: sidebarWidth }}
+        className={cn(
+          'min-h-screen transition-[margin,width] duration-300 ease-in-out',
+          isExpanded ? 'ml-[220px] w-[calc(100%_-_13.75rem)]' : 'ml-14 w-[calc(100%_-_3.5rem)]'
+        )}
       >
-        <div className="flex-1">
-          <Outlet />
+        <div
+          className={cn(
+            'flex min-h-screen w-full flex-col bg-background',
+            isPasswordChangeRoute ? 'pt-14' : 'px-4 py-20 sm:px-6 lg:px-10'
+          )}
+        >
+          <div className="flex-1 bg-background">
+            <Outlet />
+          </div>
+          {!isPasswordChangeRoute && (
+            <footer className="mt-10 border-t border-border/70 px-4 py-4 text-center text-xs text-muted-foreground">
+              <span className="font-medium text-foreground/80">© 2026 IgaraLead.</span>{' '}
+              <span>Todos os direitos reservados.</span>
+            </footer>
+          )}
         </div>
-        <footer className="border-t border-base-300/50 px-8 py-4 text-center text-xs text-base-content/35">
-          © {new Date().getFullYear()}{' '}
-          <a
-            href={BRAND_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium text-base-content/55 no-underline hover:text-base-content"
-          >
-            {BRAND_NAME}
-          </a>
-          . Todos os direitos reservados.
-        </footer>
       </main>
     </div>
   );

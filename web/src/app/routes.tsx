@@ -4,6 +4,7 @@ import AppLayout from '@/shared/layout/AppLayout';
 
 const Login = React.lazy(() => import('@/modules/auth/Login'));
 const OrgSelect = React.lazy(() => import('@/modules/auth/OrgSelect'));
+const ForcePasswordChange = React.lazy(() => import('@/modules/auth/ForcePasswordChange'));
 const Dashboard = React.lazy(() => import('@/modules/dashboard/Dashboard'));
 const Pipeline = React.lazy(() => import('@/modules/pipeline/Pipeline'));
 const Leads = React.lazy(() => import('@/modules/leads/Leads'));
@@ -15,7 +16,7 @@ const AdminPanel = React.lazy(() => import('@/modules/admin/AdminPanel'));
 function RouteSuspense({ children }: { children: React.ReactNode }) {
   return (
     <React.Suspense
-      fallback={<div className="p-8 text-center text-base-content/50">Carregando...</div>}
+      fallback={<div className="p-8 text-center text-muted-foreground">Carregando...</div>}
     >
       {children}
     </React.Suspense>
@@ -41,15 +42,15 @@ export function AppRoutes() {
           </RouteSuspense>
         }
       />
-      <Route
-        path="/admin"
-        element={
-          <RouteSuspense>
-            <AdminPanel />
-          </RouteSuspense>
-        }
-      />
       <Route path="/id/:slug" element={<AppLayout />}>
+        <Route
+          path="password/change"
+          element={
+            <RouteSuspense>
+              <ForcePasswordChange />
+            </RouteSuspense>
+          }
+        />
         <Route
           path="dashboard"
           element={
@@ -95,6 +96,14 @@ export function AppRoutes() {
           element={
             <RouteSuspense>
               <Settings />
+            </RouteSuspense>
+          }
+        />
+        <Route
+          path="admin"
+          element={
+            <RouteSuspense>
+              <AdminPanel />
             </RouteSuspense>
           }
         />

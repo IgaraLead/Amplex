@@ -1,50 +1,74 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
-import { apiGet, apiPost, apiDownload } from '@/shared/api';
+import { ChevronLeft, ChevronRight, Download, Plus, Search } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import PageHeader from '@/shared/page/PageHeader';
+import { apiDownload, apiGet, apiPost } from '@/shared/api';
 import { useToast } from '@/shared/ui/useToast';
-import { Modal } from '@/shared/ui/Modal';
-import { Download, ChevronLeft, ChevronRight } from 'lucide-react';
+
+interface ContactItem {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  mobile: string;
+  is_company: boolean;
+  city: string;
+  state: string;
+  customer_rank: number;
+  opportunity_count: number;
+}
 
 interface ContactsResponse {
-  items: Array<{
-    id: number;
-    name: string;
-    email: string;
-    phone: string;
-    mobile: string;
-    is_company: boolean;
-    city: string;
-    state: string;
-    customer_rank: number;
-    opportunity_count: number;
-  }>;
+  items: ContactItem[];
   total: number;
   page: number;
   limit: number;
   pages: number;
 }
 
+const emptyContact = { name: '', email: '', phone: '', is_company: false, city: '', cnpj: '' };
+
 export default function Contacts() {
   const queryClient = useQueryClient();
   const { addToast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  const page = parseInt(searchParams.get('page') || '1');
+  const page = Number(searchParams.get('page') || '1');
   const search = searchParams.get('search') || '';
   const type = searchParams.get('type') || '';
-
   const [searchInput, setSearchInput] = useState(search);
   const [showModal, setShowModal] = useState(false);
   const [exportFormat, setExportFormat] = useState('csv');
-  const [newContact, setNewContact] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    is_company: false,
-    city: '',
-    cnpj: '',
-  });
+  const [newContact, setNewContact] = useState(emptyContact);
 
   const { data, isLoading } = useQuery<ContactsResponse>({
     queryKey: ['contacts', page, search, type],
@@ -61,34 +85,40 @@ export default function Contacts() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contacts'] });
       setShowModal(false);
-      setNewContact({ name: '', email: '', phone: '', is_company: false, city: '', cnpj: '' });
+      setNewContact(emptyContact);
       addToast('Contato criado', 'success');
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault();
+  const handleSearch = (event: React.FormEvent) => {
+    event.preventDefault();
     setSearchParams({ search: searchInput, page: '1', type });
-  }
+  };
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">Contatos</h1>
-        <div className="flex items-center gap-2">
-          <select
-            className="select select-sm h-9 w-auto text-xs"
-            value={exportFormat}
-            onChange={e => setExportFormat(e.target.value)}
-          >
-            <option value="csv">CSV</option>
-            <option value="xlsx">Excel</option>
-            <option value="pdf">PDF</option>
-          </select>
-          <button
+    <div className="space-y-8 animate-fade-in">
+      <div className="grid gap-4 border-b border-border/70 pb-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <PageHeader
+          title="Contatos"
+          description="Centralize pessoas e empresas associadas ao pipeline comercial."
+          tag="Pessoas e Empresas"
+          className="mb-0 min-w-0 self-end border-b-0 pb-0"
+        />
+        <div className="flex flex-wrap items-end justify-end gap-2 justify-self-end">
+          <Select value={exportFormat} onValueChange={setExportFormat}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="csv">CSV</SelectItem>
+              <SelectItem value="xlsx">Excel</SelectItem>
+              <SelectItem value="pdf">PDF</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button
             type="button"
-            className="btn btn-ghost btn-sm flex items-center gap-1.5 border border-base-300"
+            variant="outline"
             onClick={() =>
               apiDownload(
                 `/crm/export/contacts?format=${exportFormat}${type ? `&type=${type}` : ''}`,
@@ -96,199 +126,196 @@ export default function Contacts() {
               )
             }
           >
-            <Download size={14} /> Exportar
-          </button>
-          <button type="button" className="btn btn-primary" onClick={() => setShowModal(true)}>
-            + Novo Contato
-          </button>
+            <Download className="size-4" /> Exportar
+          </Button>
+          <Button type="button" onClick={() => setShowModal(true)}>
+            <Plus className="size-4" /> Novo contato
+          </Button>
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-3">
-        <form onSubmit={handleSearch} className="flex min-w-[200px] max-w-md flex-1 gap-2">
-          <input
-            className="input input-sm flex-1"
-            placeholder="Buscar nome, email ou telefone..."
-            value={searchInput}
-            onChange={e => setSearchInput(e.target.value)}
-          />
-          <button type="submit" className="btn btn-ghost btn-sm border border-base-300">
-            Buscar
-          </button>
-        </form>
-        <div className="flex gap-1">
-          {['', 'person', 'company'].map(t => (
-            <button
-              key={t}
-              type="button"
-              className={`btn btn-sm ${type === t ? 'btn-primary' : 'btn-ghost border border-base-300'}`}
-              onClick={() => setSearchParams({ search, page: '1', type: t })}
-            >
-              {t === '' ? 'Todos' : t === 'person' ? 'Pessoas' : 'Empresas'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="py-8 text-center text-base-content/50">Carregando...</div>
-      ) : (
-        <>
-          <div className="table-container glass">
-            <table>
-              <thead>
-                <tr>
-                  <th>Nome</th>
-                  <th>E-mail</th>
-                  <th>Telefone</th>
-                  <th>Cidade</th>
-                  <th>Tipo</th>
-                  <th>Oportunidades</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data?.items.map(contact => (
-                  <tr key={contact.id}>
-                    <td className="font-medium text-base-content">{contact.name}</td>
-                    <td>{contact.email || '—'}</td>
-                    <td>{contact.phone || contact.mobile || '—'}</td>
-                    <td>
-                      {contact.city && contact.state
-                        ? `${contact.city}, ${contact.state}`
-                        : contact.city || '—'}
-                    </td>
-                    <td>
-                      <span
-                        className={`badge ${contact.is_company ? 'badge-warning' : 'badge-info'}`}
-                      >
-                        {contact.is_company ? 'Empresa' : 'Pessoa'}
-                      </span>
-                    </td>
-                    <td>{contact.opportunity_count || '—'}</td>
-                  </tr>
-                ))}
-                {data?.items?.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-base-content/50">
-                      Nenhum contato encontrado
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {data && data.pages > 1 && (
-            <div className="pagination">
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setSearchParams({ search, page: String(page - 1), type })}
-              >
-                <ChevronLeft size={14} className="inline" /> Anterior
-              </button>
-              <span className="text-xs text-base-content/50">
-                Página {data.page} de {data.pages} ({data.total} contatos)
-              </span>
-              <button
-                type="button"
-                disabled={page >= data.pages}
-                onClick={() => setSearchParams({ search, page: String(page + 1), type })}
-              >
-                Próxima <ChevronRight size={14} className="inline" />
-              </button>
+      <Card>
+        <CardContent className="space-y-4 p-6">
+          <form onSubmit={handleSearch} className="grid gap-3 md:grid-cols-[1fr_160px_auto]">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                value={searchInput}
+                onChange={event => setSearchInput(event.target.value)}
+                placeholder="Buscar contatos"
+              />
             </div>
-          )}
-        </>
-      )}
-
-      <Modal open={showModal} onClose={() => setShowModal(false)} className="max-w-lg px-4">
-        <div className="card bg-base-300">
-          <div className="card-body">
-            <h2 className="mb-6 text-lg font-bold">Novo Contato</h2>
-            <form
-              onSubmit={e => {
-                e.preventDefault();
-                createMutation.mutate(newContact);
-              }}
-              className="flex flex-col gap-4"
+            <Select
+              value={type || 'all'}
+              onValueChange={value =>
+                setSearchParams({ search, page: '1', type: value === 'all' ? '' : value })
+              }
             >
-              <fieldset className="fieldset">
-                <label className="label text-xs text-base-content/55">Nome *</label>
-                <input
-                  className="input w-full"
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="person">Pessoas</SelectItem>
+                <SelectItem value="company">Empresas</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button type="submit" variant="secondary">
+              Filtrar
+            </Button>
+          </form>
+
+          {isLoading ? (
+            <p className="py-8 text-center text-muted-foreground">Carregando...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Contato</TableHead>
+                  <TableHead>Local</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Oportunidades</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(data?.items ?? []).map(contact => (
+                  <TableRow key={contact.id}>
+                    <TableCell className="font-medium">{contact.name}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {contact.email || contact.phone || contact.mobile || '-'}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {[contact.city, contact.state].filter(Boolean).join(' / ') || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={contact.is_company ? 'default' : 'outline'}>
+                        {contact.is_company ? 'Empresa' : 'Pessoa'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{contact.opportunity_count}</TableCell>
+                  </TableRow>
+                ))}
+                {(data?.items ?? []).length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                      Nenhum contato encontrado
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
+
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>
+              Página {data?.page ?? page} de {data?.pages ?? 1}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={page <= 1}
+                onClick={() => setSearchParams({ search, type, page: String(page - 1) })}
+              >
+                <ChevronLeft className="size-4" />
+                Anterior
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={page >= (data?.pages ?? 1)}
+                onClick={() => setSearchParams({ search, type, page: String(page + 1) })}
+              >
+                Próxima
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Novo contato</DialogTitle>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={event => {
+              event.preventDefault();
+              createMutation.mutate(newContact);
+            }}
+          >
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="contact-name">Nome</Label>
+                <Input
+                  id="contact-name"
                   required
                   value={newContact.name}
-                  onChange={e => setNewContact({ ...newContact, name: e.target.value })}
-                  placeholder="Nome do contato ou empresa"
+                  onChange={event => setNewContact({ ...newContact, name: event.target.value })}
                 />
-              </fieldset>
-              <div className="grid grid-cols-2 gap-3">
-                <fieldset className="fieldset">
-                  <label className="label text-xs text-base-content/55">E-mail</label>
-                  <input
-                    className="input w-full"
-                    type="email"
-                    value={newContact.email}
-                    onChange={e => setNewContact({ ...newContact, email: e.target.value })}
-                    placeholder="email@empresa.com"
-                  />
-                </fieldset>
-                <fieldset className="fieldset">
-                  <label className="label text-xs text-base-content/55">Telefone</label>
-                  <input
-                    className="input w-full"
-                    value={newContact.phone}
-                    onChange={e => setNewContact({ ...newContact, phone: e.target.value })}
-                    placeholder="+55 11 99999-9999"
-                  />
-                </fieldset>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <fieldset className="fieldset">
-                  <label className="label text-xs text-base-content/55">Cidade</label>
-                  <input
-                    className="input w-full"
-                    value={newContact.city}
-                    onChange={e => setNewContact({ ...newContact, city: e.target.value })}
-                    placeholder="São Paulo"
-                  />
-                </fieldset>
-                <fieldset className="fieldset">
-                  <label className="label text-xs text-base-content/55">CNPJ</label>
-                  <input
-                    className="input w-full"
-                    value={newContact.cnpj}
-                    onChange={e => setNewContact({ ...newContact, cnpj: e.target.value })}
-                    placeholder="00.000.000/0001-00"
-                  />
-                </fieldset>
+              <div className="space-y-2">
+                <Label htmlFor="contact-email">E-mail</Label>
+                <Input
+                  id="contact-email"
+                  type="email"
+                  value={newContact.email}
+                  onChange={event => setNewContact({ ...newContact, email: event.target.value })}
+                />
               </div>
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-base-content">
-                <input
-                  type="checkbox"
-                  className="checkbox checkbox-sm"
+              <div className="space-y-2">
+                <Label htmlFor="contact-phone">Telefone</Label>
+                <Input
+                  id="contact-phone"
+                  value={newContact.phone}
+                  onChange={event => setNewContact({ ...newContact, phone: event.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contact-city">Cidade</Label>
+                <Input
+                  id="contact-city"
+                  value={newContact.city}
+                  onChange={event => setNewContact({ ...newContact, city: event.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contact-cnpj">CNPJ</Label>
+                <Input
+                  id="contact-cnpj"
+                  value={newContact.cnpj}
+                  onChange={event => setNewContact({ ...newContact, cnpj: event.target.value })}
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
                   checked={newContact.is_company}
-                  onChange={e => setNewContact({ ...newContact, is_company: e.target.checked })}
+                  onCheckedChange={checked =>
+                    setNewContact({ ...newContact, is_company: checked === true })
+                  }
                 />
-                É empresa
+                Empresa
               </label>
-              <div className="mt-2 flex justify-end gap-3">
-                <button type="button" className="btn btn-ghost" onClick={() => setShowModal(false)}>
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={createMutation.isPending}
-                >
-                  {createMutation.isPending ? 'Criando...' : 'Criar Contato'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      </Modal>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={createMutation.isPending}>
+                Criar
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,11 +1,47 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useParams } from 'react-router-dom';
 import { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router-dom';
+import { Check, Search, Star, X } from 'lucide-react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
+import PageHeader from '@/shared/page/PageHeader';
 import { apiGet, apiPost } from '@/shared/api';
-import { useToast } from '@/shared/ui/useToast';
 import { useAuth } from '@/shared/store';
-import { Modal } from '@/shared/ui/Modal';
-import { Star, Check, X } from 'lucide-react';
+import { useToast } from '@/shared/ui/useToast';
+
+interface PipelineCard {
+  id: number;
+  name: string;
+  contact_name: string;
+  partner_name: string;
+  email_from: string;
+  phone: string;
+  expected_revenue: number;
+  probability: number;
+  priority: string;
+  create_date: string;
+  tag_ids: Array<{ id: number; name: string; color: number }>;
+  user_name: string;
+}
 
 interface PipelineData {
   columns: Array<{
@@ -13,21 +49,9 @@ interface PipelineData {
     name: string;
     sequence: number;
     is_won: boolean;
+    is_lost: boolean;
     count: number;
-    cards: Array<{
-      id: number;
-      name: string;
-      contact_name: string;
-      partner_name: string;
-      email_from: string;
-      phone: string;
-      expected_revenue: number;
-      probability: number;
-      priority: string;
-      create_date: string;
-      tag_ids: Array<{ id: number; name: string; color: number }>;
-      user_name: string;
-    }>;
+    cards: PipelineCard[];
   }>;
 }
 
@@ -35,32 +59,35 @@ interface LostReason {
   id: number;
   name: string;
 }
-
-function formatCurrency(value: number): string {
-  if (value === 0) return '';
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-    maximumFractionDigits: 0,
-  }).format(value);
+interface WonReason {
+  id: number;
+  name: string;
 }
-
-function priorityStars(p: string) {
-  const n = parseInt(p) || 0;
-  if (n <= 0) return null;
-  return (
-    <>
-      {Array.from({ length: n }, (_, i) => (
-        <Star key={i} size={11} fill="currentColor" />
-      ))}
-    </>
-  );
-}
-
 interface UserItem {
   id: number;
   name: string;
   email: string;
+}
+
+const formatCurrency = (value: number) =>
+  value
+    ? new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        maximumFractionDigits: 0,
+      }).format(value)
+    : '';
+
+function PriorityStars({ value }: { value: string }) {
+  const count = Number.parseInt(value) || 0;
+  if (count <= 0) return null;
+  return (
+    <span className="flex text-warning">
+      {Array.from({ length: count }, (_, index) => (
+        <Star key={index} className="size-3 fill-current" />
+      ))}
+    </span>
+  );
 }
 
 export default function Pipeline() {
@@ -71,9 +98,13 @@ export default function Pipeline() {
   const { addToast } = useToast();
   const { user } = useAuth();
   const isManager = user?.role === 'admin';
-  const [lostDialog, setLostDialog] = useState<{ leadId: number; stageId: number } | null>(null);
+  const [reasonDialog, setReasonDialog] = useState<{
+    type: 'won' | 'lost';
+    leadId: number;
+    stageId: number;
+  } | null>(null);
   const [searchText, setSearchText] = useState('');
-  const [filterUser, setFilterUser] = useState('');
+  const [filterUser, setFilterUser] = useState('all');
   const [minValue, setMinValue] = useState('');
   const [maxValue, setMaxValue] = useState('');
   const [draggingCardId, setDraggingCardId] = useState<number | null>(null);
@@ -85,15 +116,15 @@ export default function Pipeline() {
     max_value: '',
   });
 
-  function buildFilterParams() {
-    const p = new URLSearchParams();
-    if (appliedFilters.search) p.set('search', appliedFilters.search);
-    if (appliedFilters.user_id) p.set('user_id', appliedFilters.user_id);
-    if (appliedFilters.min_value) p.set('min_value', appliedFilters.min_value);
-    if (appliedFilters.max_value) p.set('max_value', appliedFilters.max_value);
-    const qs = p.toString();
+  const buildFilterParams = () => {
+    const params = new URLSearchParams();
+    if (appliedFilters.search) params.set('search', appliedFilters.search);
+    if (appliedFilters.user_id) params.set('user_id', appliedFilters.user_id);
+    if (appliedFilters.min_value) params.set('min_value', appliedFilters.min_value);
+    if (appliedFilters.max_value) params.set('max_value', appliedFilters.max_value);
+    const qs = params.toString();
     return qs ? `&${qs}` : '';
-  }
+  };
 
   const { data, isLoading } = useQuery<PipelineData>({
     queryKey: ['pipeline', appliedFilters],
@@ -105,293 +136,261 @@ export default function Pipeline() {
     queryFn: () => apiGet('/crm/users'),
     enabled: isManager,
   });
-
   const { data: lostReasonsData } = useQuery<{ items: LostReason[] }>({
     queryKey: ['lost-reasons'],
     queryFn: () => apiGet('/crm/lost-reasons'),
-    enabled: !!lostDialog,
+  });
+  const { data: wonReasonsData } = useQuery<{ items: WonReason[] }>({
+    queryKey: ['won-reasons'],
+    queryFn: () => apiGet('/crm/won-reasons'),
   });
 
   const moveMutation = useMutation({
-    mutationFn: ({ leadId, stageId }: { leadId: number; stageId: number }) =>
-      apiPost(`/crm/leads/${leadId}/move`, { stage_id: stageId }),
+    mutationFn: ({
+      leadId,
+      stageId,
+      wonReasonId,
+      lostReasonId,
+    }: {
+      leadId: number;
+      stageId: number;
+      wonReasonId?: number;
+      lostReasonId?: number;
+    }) =>
+      apiPost(`/crm/leads/${leadId}/move`, {
+        stage_id: stageId,
+        won_reason_id: wonReasonId,
+        lost_reason_id: lostReasonId,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pipeline'] });
-    },
-    onError: (err: Error) => {
-      addToast(err.message, 'error');
-    },
-  });
-
-  const lostMutation = useMutation({
-    mutationFn: ({ leadId, reasonId }: { leadId: number; reasonId: number }) =>
-      apiPost(`/crm/leads/${leadId}/lost`, { lost_reason_id: reasonId }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pipeline'] });
-      setLostDialog(null);
-      addToast('Oportunidade marcada como perdida', 'success');
+      setReasonDialog(null);
+      addToast('Oportunidade movida', 'success');
     },
     onError: (err: Error) => addToast(err.message, 'error'),
   });
 
-  function handleDragStart(e: React.DragEvent, cardId: number, fromStageId: number) {
-    e.dataTransfer.setData('text/plain', String(cardId));
-    e.dataTransfer.setData('source-stage-id', String(fromStageId));
-    e.dataTransfer.effectAllowed = 'move';
-    setDraggingCardId(cardId);
-  }
-
-  function handleDragEnd() {
-    // Small delay avoids accidental click navigation right after dropping.
-    setTimeout(() => setDraggingCardId(null), 80);
+  const handleDrop = (event: React.DragEvent, column: PipelineData['columns'][number]) => {
+    event.preventDefault();
     setDragOverStageId(null);
-  }
-
-  function handleDrop(e: React.DragEvent, stageId: number, stageName: string) {
-    e.preventDefault();
-    setDragOverStageId(null);
-    const cardId = parseInt(e.dataTransfer.getData('text/plain'));
-    const sourceStageId = parseInt(e.dataTransfer.getData('source-stage-id'));
-    if (!cardId || !stageId) return;
-    if (sourceStageId === stageId) return;
-
-    const lostNames = ['perdido', 'perdida', 'lost'];
-    if (lostNames.some(n => stageName.toLowerCase().includes(n))) {
-      setLostDialog({ leadId: cardId, stageId });
-    } else {
-      moveMutation.mutate({ leadId: cardId, stageId });
+    const cardId = Number.parseInt(event.dataTransfer.getData('text/plain'));
+    const sourceStageId = Number.parseInt(event.dataTransfer.getData('source-stage-id'));
+    if (!cardId || !column.id || sourceStageId === column.id) return;
+    if (column.is_won || column.is_lost) {
+      const reasons = column.is_won
+        ? (wonReasonsData?.items ?? [])
+        : (lostReasonsData?.items ?? []);
+      if (reasons.length === 0) {
+        moveMutation.mutate({ leadId: cardId, stageId: column.id });
+        return;
+      }
+      setReasonDialog({
+        type: column.is_won ? 'won' : 'lost',
+        leadId: cardId,
+        stageId: column.id,
+      });
+      return;
     }
-  }
+    moveMutation.mutate({ leadId: cardId, stageId: column.id });
+  };
 
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  }
-
-  if (isLoading) {
-    return (
-      <div className="page">
-        <div className="py-12 text-center text-base-content/50">Carregando pipeline...</div>
-      </div>
-    );
-  }
-
-  const columns = data?.columns || [];
+  const columns = data?.columns ?? [];
 
   return (
-    <div className="page">
-      <div className="page-header">
-        <h1 className="page-title">Pipeline</h1>
-        <button
-          type="button"
-          className="btn btn-primary"
-          onClick={() => navigate(`${orgBase}/leads?new=1`)}
-        >
-          + Nova Oportunidade
-        </button>
+    <div className="space-y-8 animate-fade-in">
+      <div className="border-b border-border/70 pb-6">
+        <PageHeader
+          title="Pipeline"
+          description="Arraste oportunidades entre estágios e acompanhe o fluxo comercial."
+          tag="Etapas"
+          className="mb-0 border-b-0 pb-0"
+        />
       </div>
 
-      <div className="mb-4 flex flex-wrap items-end gap-2">
-        <input
-          className="input input-sm h-9 w-44 text-xs"
-          placeholder="Buscar..."
-          value={searchText}
-          onChange={e => setSearchText(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') setAppliedFilters({ ...appliedFilters, search: searchText });
-          }}
-        />
-        {isManager && (
-          <select
-            className="select select-sm h-9 max-w-xs text-xs"
-            value={filterUser}
-            onChange={e => {
-              setFilterUser(e.target.value);
-              setAppliedFilters({ ...appliedFilters, user_id: e.target.value });
-            }}
-          >
-            <option value="">Todos vendedores</option>
-            {(usersData?.users || []).map(u => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </select>
-        )}
-        <input
-          className="input input-sm h-9 w-24 text-xs"
-          type="number"
-          placeholder="Valor min"
-          value={minValue}
-          onChange={e => setMinValue(e.target.value)}
-          onBlur={() => setAppliedFilters({ ...appliedFilters, min_value: minValue })}
-        />
-        <input
-          className="input input-sm h-9 w-24 text-xs"
-          type="number"
-          placeholder="Valor max"
-          value={maxValue}
-          onChange={e => setMaxValue(e.target.value)}
-          onBlur={() => setAppliedFilters({ ...appliedFilters, max_value: maxValue })}
-        />
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm border border-base-300"
-          onClick={() =>
-            setAppliedFilters({
-              search: searchText,
-              user_id: filterUser,
-              min_value: minValue,
-              max_value: maxValue,
-            })
-          }
-        >
-          Filtrar
-        </button>
-        {(appliedFilters.search ||
-          appliedFilters.user_id ||
-          appliedFilters.min_value ||
-          appliedFilters.max_value) && (
-          <button
+      <Card>
+        <CardContent className="grid gap-3 p-4 md:grid-cols-[1fr_180px_120px_120px_auto]">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Buscar oportunidade"
+              value={searchText}
+              onChange={event => setSearchText(event.target.value)}
+            />
+          </div>
+          {isManager && (
+            <Select value={filterUser} onValueChange={setFilterUser}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {(usersData?.users ?? []).map(item => (
+                  <SelectItem key={item.id} value={String(item.id)}>
+                    {item.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Input
+            placeholder="Valor mín."
+            type="number"
+            value={minValue}
+            onChange={event => setMinValue(event.target.value)}
+          />
+          <Input
+            placeholder="Valor máx."
+            type="number"
+            value={maxValue}
+            onChange={event => setMaxValue(event.target.value)}
+          />
+          <Button
             type="button"
-            className="btn btn-ghost btn-sm text-error"
-            onClick={() => {
-              setSearchText('');
-              setFilterUser('');
-              setMinValue('');
-              setMaxValue('');
-              setAppliedFilters({ search: '', user_id: '', min_value: '', max_value: '' });
-            }}
+            onClick={() =>
+              setAppliedFilters({
+                search: searchText,
+                user_id: filterUser === 'all' ? '' : filterUser,
+                min_value: minValue,
+                max_value: maxValue,
+              })
+            }
           >
-            Limpar
-          </button>
-        )}
-      </div>
+            Aplicar
+          </Button>
+        </CardContent>
+      </Card>
 
-      <div className="kanban-board">
-        {columns.map(col => (
-          <div
-            key={col.id}
-            className={`kanban-column ${dragOverStageId === col.id ? 'ring-2 ring-info/50' : ''}`}
-            onDragOver={e => {
-              handleDragOver(e);
-              setDragOverStageId(col.id);
-            }}
-            onDragLeave={() => {
-              if (dragOverStageId === col.id) setDragOverStageId(null);
-            }}
-            onDrop={e => handleDrop(e, col.id, col.name)}
-          >
-            <div className="kanban-column-header">
-              <span className="kanban-column-title">
-                {col.name}
-                {col.is_won && (
-                  <span className="ml-1.5 inline-flex text-success">
-                    <Check size={14} />
-                  </span>
-                )}
-              </span>
-              <span className="kanban-column-count">{col.count}</span>
-            </div>
-
-            <div className="kanban-cards">
-              {col.cards.map(card => (
-                <div
-                  key={card.id}
-                  className="kanban-card"
-                  draggable
-                  onDragStart={e => handleDragStart(e, card.id, col.id)}
-                  onDragEnd={handleDragEnd}
-                  onClick={() => {
-                    if (draggingCardId !== null) return;
-                    navigate(`${orgBase}/leads/${card.id}`);
-                  }}
-                >
-                  <div className="kanban-card-title">
-                    {priorityStars(card.priority) !== null && (
-                      <span className="mr-1.5 inline-flex gap-px text-warning">
-                        {priorityStars(card.priority)}
-                      </span>
-                    )}
-                    {card.name}
-                  </div>
-                  <div className="kanban-card-meta clearfix">
-                    {card.contact_name || card.partner_name}
-                    {card.expected_revenue > 0 && (
-                      <span className="float-right font-medium text-success">
+      {isLoading ? (
+        <p className="py-12 text-center text-muted-foreground">Carregando pipeline...</p>
+      ) : (
+        <div className="flex gap-4 overflow-x-auto pb-4">
+          {columns.map(column => (
+            <section
+              key={column.id}
+              className={cn(
+                'min-w-[280px] flex-1 rounded-2xl border bg-card transition-colors',
+                dragOverStageId === column.id ? 'border-primary bg-primary/10' : 'border-border'
+              )}
+              onDragOver={event => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+              }}
+              onDragEnter={() => setDragOverStageId(column.id)}
+              onDragLeave={() => setDragOverStageId(null)}
+              onDrop={event => handleDrop(event, column)}
+            >
+              <div className="flex items-center justify-between border-b border-border p-4">
+                <div className="flex items-center gap-2">
+                  <h2 className="font-semibold">{column.name}</h2>
+                  {column.is_won && <Check className="size-4 text-success" />}
+                  {column.is_lost && <X className="size-4 text-destructive" />}
+                </div>
+                <Badge variant="outline">{column.count}</Badge>
+              </div>
+              <div className="space-y-3 p-3">
+                {column.cards.map(card => (
+                  <button
+                    key={card.id}
+                    type="button"
+                    draggable
+                    onDragStart={event => {
+                      event.dataTransfer.setData('text/plain', String(card.id));
+                      event.dataTransfer.setData('source-stage-id', String(column.id));
+                      event.dataTransfer.effectAllowed = 'move';
+                      setDraggingCardId(card.id);
+                    }}
+                    onDragEnd={() => setTimeout(() => setDraggingCardId(null), 80)}
+                    onClick={() => {
+                      if (!draggingCardId) navigate(`${orgBase}/leads/${card.id}`);
+                    }}
+                    className="w-full rounded-xl border border-border bg-muted/30 p-4 text-left transition hover:border-primary/40 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-medium text-foreground">{card.name}</p>
+                      <PriorityStars value={card.priority} />
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {card.contact_name || card.email_from || card.phone || 'Sem contato'}
+                    </p>
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <span className="font-mono text-xs text-success">
                         {formatCurrency(card.expected_revenue)}
                       </span>
+                      {card.user_name && (
+                        <Badge variant="outline" size="sm">
+                          {card.user_name}
+                        </Badge>
+                      )}
+                    </div>
+                    {card.tag_ids?.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        {card.tag_ids.map(tag => (
+                          <Badge key={tag.id} variant="secondary" size="sm">
+                            {tag.name}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
-                  </div>
-                  {card.tag_ids?.length > 0 && (
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      {card.tag_ids.map(tag => (
-                        <span
-                          key={tag.id}
-                          className="badge badge-info badge-sm py-0 text-[0.65rem]"
-                        >
-                          {tag.name}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {card.user_name && (
-                    <div className="mt-1.5 text-[0.7rem] text-base-content/50">
-                      {card.user_name}
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {col.cards.length === 0 && (
-                <div className="p-4 text-center text-sm text-base-content/45">
-                  Nenhuma oportunidade
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <Modal open={!!lostDialog} onClose={() => setLostDialog(null)} className="max-w-md px-4">
-        <div className="card bg-base-300">
-          <div className="card-body">
-            <div className="mb-5 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-base-content">Motivo da Perda</h2>
-              <button
-                type="button"
-                className="btn btn-ghost btn-sm btn-square"
-                onClick={() => setLostDialog(null)}
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <p className="mb-4 text-sm text-base-content/55">
-              Por que esta oportunidade foi perdida?
-            </p>
-            <div className="flex flex-col gap-2">
-              {(lostReasonsData?.items || []).map(r => (
-                <button
-                  key={r.id}
-                  type="button"
-                  className="btn btn-ghost justify-start border border-base-300"
-                  onClick={() =>
-                    lostMutation.mutate({ leadId: lostDialog!.leadId, reasonId: r.id })
-                  }
-                  disabled={lostMutation.isPending}
-                >
-                  {r.name}
-                </button>
-              ))}
-              {(lostReasonsData?.items || []).length === 0 && (
-                <p className="text-sm text-base-content/50">
-                  Nenhum motivo cadastrado. Cadastre em Configurações.
-                </p>
-              )}
-            </div>
-          </div>
+                  </button>
+                ))}
+                {column.cards.length === 0 && (
+                  <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                    Sem oportunidades
+                  </p>
+                )}
+              </div>
+            </section>
+          ))}
         </div>
-      </Modal>
+      )}
+
+      <Dialog open={Boolean(reasonDialog)} onOpenChange={open => !open && setReasonDialog(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {reasonDialog?.type === 'won' ? 'Motivo do ganho' : 'Motivo da perda'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>{reasonDialog?.type === 'won' ? 'Motivo do ganho' : 'Motivo da perda'}</Label>
+            <div className="grid gap-2">
+              {(reasonDialog?.type === 'won'
+                ? (wonReasonsData?.items ?? [])
+                : (lostReasonsData?.items ?? [])
+              ).map(reason => (
+                <Button
+                  key={reason.id}
+                  type="button"
+                  variant="outline"
+                  className="justify-start"
+                  onClick={() =>
+                    reasonDialog &&
+                    moveMutation.mutate({
+                      leadId: reasonDialog.leadId,
+                      stageId: reasonDialog.stageId,
+                      wonReasonId: reasonDialog.type === 'won' ? reason.id : undefined,
+                      lostReasonId: reasonDialog.type === 'lost' ? reason.id : undefined,
+                    })
+                  }
+                >
+                  {reasonDialog?.type === 'won' ? (
+                    <Check className="size-4" />
+                  ) : (
+                    <X className="size-4" />
+                  )}
+                  {reason.name}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setReasonDialog(null)}>
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,26 +1,43 @@
+import { CheckCircle2, Info, XCircle, X } from 'lucide-react';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { useToast } from './useToast';
 
-const toastStyles: Record<string, string> = {
-  success: 'bg-success/15 border border-success/40 text-success',
-  error: 'bg-error/15 border border-error/40 text-error',
-  info: 'bg-primary/15 border border-primary/40 text-primary',
+const toastMeta = {
+  success: { variant: 'success' as const, icon: CheckCircle2 },
+  error: { variant: 'destructive' as const, icon: XCircle },
+  info: { variant: 'info' as const, icon: Info },
 };
 
 export default function ToastContainer() {
   const { toasts, removeToast } = useToast();
   if (!toasts.length) return null;
+
   return (
-    <div className="fixed top-14 right-4 z-[150] flex flex-col gap-2 max-w-[380px]">
-      {toasts.map(t => {
-        const cls = toastStyles[t.type] || toastStyles.info;
+    <div
+      className="fixed right-4 top-16 z-[150] flex w-[min(380px,calc(100vw-2rem))] flex-col gap-2"
+      role="status"
+      aria-live="polite"
+    >
+      {toasts.map(toast => {
+        const meta = toastMeta[toast.type] ?? toastMeta.info;
+        const Icon = meta.icon;
         return (
-          <div
-            key={t.id}
-            onClick={() => removeToast(t.id)}
-            className={`${cls} px-4 py-3 rounded-xl cursor-pointer text-sm font-medium shadow-lg`}
-          >
-            {t.message}
-          </div>
+          <Alert key={toast.id} variant={meta.variant} className="items-center pr-10 shadow-lg">
+            <Icon className="size-4" />
+            <AlertDescription className="text-current">{toast.message}</AlertDescription>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-current hover:bg-current/10 hover:text-current"
+              aria-label="Fechar notificação"
+              onClick={() => removeToast(toast.id)}
+            >
+              <X className="size-3.5" />
+            </Button>
+          </Alert>
         );
       })}
     </div>
