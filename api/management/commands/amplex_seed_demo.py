@@ -41,7 +41,13 @@ COMPANIES = [
     ("Aurora Tech", "contato@auroratech.dev", "11 4002-1010", "Sao Paulo", "SP"),
     ("Boreal Logistica", "comercial@boreal.dev", "41 3020-5588", "Curitiba", "PR"),
     ("Cacto Foods", "vendas@cactofoods.dev", "85 3030-8844", "Fortaleza", "CE"),
-    ("Delta Energia", "relacionamento@deltaenergia.dev", "31 3222-1900", "Belo Horizonte", "MG"),
+    (
+        "Delta Energia",
+        "relacionamento@deltaenergia.dev",
+        "31 3222-1900",
+        "Belo Horizonte",
+        "MG",
+    ),
     ("Estrela Labs", "hello@estrelalabs.dev", "21 3555-9080", "Rio de Janeiro", "RJ"),
 ]
 
@@ -54,16 +60,52 @@ PEOPLE = [
 ]
 
 LEADS = [
-    ("Implantacao CRM - Aurora Tech", 180000, "Novo", "Inbound", ["enterprise", "quente"]),
+    (
+        "Implantacao CRM - Aurora Tech",
+        180000,
+        "Novo",
+        "Inbound",
+        ["enterprise", "quente"],
+    ),
     ("Expansao comercial - Boreal", 95000, "Qualificacao", "Indicacao", ["logistica"]),
-    ("Pipeline nacional - Cacto Foods", 130000, "Proposta", "Evento", ["food", "quente"]),
-    ("Renovacao comercial - Delta Energia", 210000, "Negociacao", "Outbound", ["energia"]),
+    (
+        "Pipeline nacional - Cacto Foods",
+        130000,
+        "Proposta",
+        "Evento",
+        ["food", "quente"],
+    ),
+    (
+        "Renovacao comercial - Delta Energia",
+        210000,
+        "Negociacao",
+        "Outbound",
+        ["energia"],
+    ),
     ("Setup growth - Estrela Labs", 76000, "Ganho", "Inbound", ["startup"]),
-    ("Recuperacao de contas - Aurora Tech", 45000, "Perdido", "Outbound", ["reativacao"]),
+    (
+        "Recuperacao de contas - Aurora Tech",
+        45000,
+        "Perdido",
+        "Outbound",
+        ["reativacao"],
+    ),
     ("Nova filial sul - Boreal", 115000, "Novo", "Indicacao", ["logistica", "frio"]),
     ("Programa canais - Cacto Foods", 88000, "Qualificacao", "Evento", ["food"]),
-    ("Conta estrategica - Delta Energia", 260000, "Proposta", "Inbound", ["enterprise"]),
-    ("Automacao SDR - Estrela Labs", 54000, "Negociacao", "Outbound", ["startup", "quente"]),
+    (
+        "Conta estrategica - Delta Energia",
+        260000,
+        "Proposta",
+        "Inbound",
+        ["enterprise"],
+    ),
+    (
+        "Automacao SDR - Estrela Labs",
+        54000,
+        "Negociacao",
+        "Outbound",
+        ["startup", "quente"],
+    ),
 ]
 
 
@@ -172,7 +214,16 @@ class Command(BaseCommand):
         }
 
     def _seed_tags(self, org):
-        names = ["enterprise", "quente", "frio", "logistica", "food", "energia", "startup", "reativacao"]
+        names = [
+            "enterprise",
+            "quente",
+            "frio",
+            "logistica",
+            "food",
+            "energia",
+            "startup",
+            "reativacao",
+        ]
         return {
             name: Tag.objects.update_or_create(
                 org=org,
@@ -257,7 +308,9 @@ class Command(BaseCommand):
     ):
         leads = []
         now = timezone.now()
-        for index, (name, revenue, stage_name, source_name, tag_names) in enumerate(LEADS):
+        for index, (name, revenue, stage_name, source_name, tag_names) in enumerate(
+            LEADS
+        ):
             person = people[index % len(people)]
             company = companies[index % len(companies)]
             stage = stages[stage_name]
@@ -278,7 +331,8 @@ class Command(BaseCommand):
                     "city": company.city,
                     "state_name": company.state_name,
                     "country_name": "Brasil",
-                    "date_deadline": timezone.localdate() + timedelta(days=rng.randint(3, 35)),
+                    "date_deadline": timezone.localdate()
+                    + timedelta(days=rng.randint(3, 35)),
                     "date_closed": now - timedelta(days=2) if stage.is_won else None,
                     "active": True,
                     "stage": stage,
@@ -293,7 +347,9 @@ class Command(BaseCommand):
         return leads
 
     def _seed_branch_data(self, branch, stages, users):
-        source, _ = Source.objects.update_or_create(org=branch, name="Inbound", defaults={})
+        source, _ = Source.objects.update_or_create(
+            org=branch, name="Inbound", defaults={}
+        )
         company, _ = Contact.objects.update_or_create(
             org=branch,
             email="comercial@sul.dev",

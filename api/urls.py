@@ -182,9 +182,7 @@ urlpatterns = [
     ),
     path(
         "id/<slug:slug>/crm/won-reasons",
-        _dispatch(
-            GET=won_reasons.list_won_reasons, POST=won_reasons.create_won_reason
-        ),
+        _dispatch(GET=won_reasons.list_won_reasons, POST=won_reasons.create_won_reason),
         name="won-reasons",
     ),
     path(

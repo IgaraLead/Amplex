@@ -40,7 +40,9 @@ def ensure_fixed_stages(org):
 
 
 def normalize_stage_sequences(org):
-    regular_stages = Stage.objects.filter(org=org, is_fixed=False).order_by("sequence", "id")
+    regular_stages = Stage.objects.filter(org=org, is_fixed=False).order_by(
+        "sequence", "id"
+    )
     for index, stage in enumerate(regular_stages, start=1):
         next_sequence = index * 10
         if stage.sequence != next_sequence:
@@ -108,7 +110,9 @@ def update_stage(request, slug, stage_id):
     if not stage:
         return JsonResponse({"detail": "Not found"}, status=404)
     if stage.is_fixed:
-        return JsonResponse({"detail": "Estágio fixo não pode ser editado."}, status=409)
+        return JsonResponse(
+            {"detail": "Estágio fixo não pode ser editado."}, status=409
+        )
 
     if "name" in body:
         name = (body["name"] or "").strip()
@@ -165,7 +169,9 @@ def delete_stage(request, slug, stage_id):
     if not stage:
         return JsonResponse({"detail": "Not found"}, status=404)
     if stage.is_fixed:
-        return JsonResponse({"detail": "Estágio fixo não pode ser excluído."}, status=409)
+        return JsonResponse(
+            {"detail": "Estágio fixo não pode ser excluído."}, status=409
+        )
 
     active_opportunities = Lead.objects.filter(
         stage=stage, org=org, active=True, type="opportunity"

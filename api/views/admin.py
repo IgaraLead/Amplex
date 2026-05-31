@@ -83,10 +83,14 @@ def _membership_payload_from_body(body: dict, role: str):
             continue
         member_role = (raw.get("role") or "member").strip().lower()
         if member_role not in ("member", "admin"):
-            return None, JsonResponse({"detail": "role de organização inválido"}, status=400)
+            return None, JsonResponse(
+                {"detail": "role de organização inválido"}, status=400
+            )
         org = AmplexOrganization.objects.filter(id=org_id, active=True).first()
         if not org:
-            return None, JsonResponse({"detail": "Organização não encontrada"}, status=404)
+            return None, JsonResponse(
+                {"detail": "Organização não encontrada"}, status=404
+            )
         seen_org_ids.add(org_id)
         memberships.append({"org": org, "role": member_role})
 
@@ -97,9 +101,7 @@ def _membership_payload_from_body(body: dict, role: str):
 
 def _sync_user_memberships(user: AmplexUser, memberships: list[dict]):
     desired_org_ids = {item["org"].id for item in memberships}
-    existing = {
-        item.org_id: item for item in AmplexOrgMember.objects.filter(user=user)
-    }
+    existing = {item.org_id: item for item in AmplexOrgMember.objects.filter(user=user)}
 
     for item in memberships:
         org = item["org"]

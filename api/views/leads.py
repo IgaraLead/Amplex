@@ -8,7 +8,16 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
 from api.auth_utils import org_admin_required, org_required
-from api.models import AmplexUser, Contact, Interaction, Lead, LostReason, Stage, Tag, WonReason
+from api.models import (
+    AmplexUser,
+    Contact,
+    Interaction,
+    Lead,
+    LostReason,
+    Stage,
+    Tag,
+    WonReason,
+)
 
 from .permissions import get_user_permission
 
@@ -315,7 +324,13 @@ def move_lead(request, slug, lead_id):
     if not stage:
         return JsonResponse({"detail": "Stage not found"}, status=404)
 
-    update_fields = ["stage_id", "probability", "date_closed", "lost_reason_id", "won_reason_id"]
+    update_fields = [
+        "stage_id",
+        "probability",
+        "date_closed",
+        "lost_reason_id",
+        "won_reason_id",
+    ]
     lead.stage = stage
     if stage.is_won:
         reason = WonReason.objects.filter(id=body.get("won_reason_id"), org=org).first()
@@ -327,7 +342,9 @@ def move_lead(request, slug, lead_id):
         lead.probability = 100
         lead.date_closed = timezone.now()
     elif stage.is_lost:
-        reason = LostReason.objects.filter(id=body.get("lost_reason_id"), org=org).first()
+        reason = LostReason.objects.filter(
+            id=body.get("lost_reason_id"), org=org
+        ).first()
         has_reasons = LostReason.objects.filter(org=org, active=True).exists()
         if has_reasons and not reason:
             return JsonResponse({"detail": "Lost reason not found"}, status=400)
@@ -421,7 +438,9 @@ def mark_lead_lost(request, slug, lead_id):
     if not reason:
         return JsonResponse({"detail": "Lost reason not found"}, status=404)
 
-    lost_stage = Stage.objects.filter(org=org, is_lost=True).order_by("sequence").first()
+    lost_stage = (
+        Stage.objects.filter(org=org, is_lost=True).order_by("sequence").first()
+    )
     if lost_stage:
         lead.stage = lost_stage
     lead.active = True
