@@ -9,6 +9,7 @@ from django.views.decorators.http import require_http_methods
 from api.auth_utils import org_admin_required, org_required
 from api.models import AmplexOrgMember, AmplexUser
 from api.seat_limits import validate_seat_available
+from api.user_deletion import get_org_user_data_counts
 
 
 @require_http_methods(["GET"])
@@ -18,22 +19,20 @@ def list_users(request, slug):
     members = AmplexOrgMember.objects.filter(org=org, active=True).select_related(
         "user"
     )
-
-    return JsonResponse(
+    items = [
         {
-            "items": [
-                {
-                    "id": m.user.id,
-                    "name": m.user.name,
-                    "email": m.user.email,
-                    "role": m.role,
-                    "avatar_url": "",
-                }
-                for m in members
-                if m.user.active
-            ]
+            "id": m.user.id,
+            "name": m.user.name,
+            "email": m.user.email,
+            "role": m.role,
+            "avatar_url": "",
+            "data_counts": get_org_user_data_counts(org, m.user),
         }
-    )
+        for m in members
+        if m.user.active
+    ]
+
+    return JsonResponse({"items": items, "users": items})
 
 
 @require_http_methods(["POST"])

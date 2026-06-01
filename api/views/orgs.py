@@ -10,6 +10,7 @@ from django.views.decorators.http import require_http_methods
 from api.auth_utils import login_required, org_admin_required, org_required
 from api.models import AmplexOrganization, AmplexOrgMember, AmplexUser, Stage
 from api.seat_limits import validate_seat_available
+from api.user_deletion import delete_org_member_user, get_org_user_data_counts
 
 DEFAULT_STAGES = [
     ("Novo", 1, False),
@@ -18,6 +19,25 @@ DEFAULT_STAGES = [
     ("Negociação", 4, False),
     ("Ganho", 5, True),
 ]
+
+
+def _active_admin_count(org, excluded_user_id=None):
+    qs = AmplexOrgMember.objects.filter(org=org, active=True, role="admin")
+    if excluded_user_id:
+        qs = qs.exclude(user_id=excluded_user_id)
+    return qs.count()
+
+
+def _serialize_member(org, member):
+    return {
+        "id": member.user.id,
+        "user_id": member.user.id,
+        "name": member.user.name,
+        "email": member.user.email,
+        "role": member.role,
+        "avatar_url": "",
+        "data_counts": get_org_user_data_counts(org, member.user),
+    }
 
 
 @require_http_methods(["GET"])
@@ -114,22 +134,9 @@ def list_members(request, slug):
     members = AmplexOrgMember.objects.filter(org=org, active=True).select_related(
         "user"
     )
+    items = [_serialize_member(org, member) for member in members if member.user.active]
 
-    return JsonResponse(
-        {
-            "items": [
-                {
-                    "user_id": m.user.id,
-                    "name": m.user.name,
-                    "email": m.user.email,
-                    "role": m.role,
-                    "avatar_url": "",
-                }
-                for m in members
-                if m.user.active
-            ]
-        }
-    )
+    return JsonResponse({"items": items})
 
 
 @require_http_methods(["POST"])
@@ -175,14 +182,73 @@ def add_member(request, slug):
     )
 
 
+@require_http_methods(["PUT"])
+@org_admin_required
+def update_member(request, slug, user_id):
+    org = request.amplex_org
+    member = (
+        AmplexOrgMember.objects.select_related("user")
+        .filter(org=org, user_id=user_id, active=True)
+        .first()
+    )
+    if not member or not member.user.active:
+        return JsonResponse(
+            {"detail": "Usuário não encontrado nesta organização."}, status=404
+        )
+
+    body = json.loads(request.body)
+    user = member.user
+    update_user_fields = []
+
+    if "name" in body:
+        name = (body.get("name") or "").strip()
+        if not name:
+            return JsonResponse({"detail": "name is required"}, status=400)
+        user.name = name
+        update_user_fields.append("name")
+
+    if "email" in body:
+        email = (body.get("email") or "").strip().lower()
+        if not email:
+            return JsonResponse({"detail": "email is required"}, status=400)
+        if AmplexUser.objects.filter(email=email).exclude(id=user.id).exists():
+            return JsonResponse({"detail": "E-mail já cadastrado"}, status=409)
+        user.email = email
+        user.login = email
+        update_user_fields.extend(["email", "login"])
+
+    if "role" in body:
+        role = (body.get("role") or "").strip().lower()
+        if role not in ("admin", "member"):
+            return JsonResponse({"detail": "role inválido"}, status=400)
+        if (
+            member.role == "admin"
+            and role != "admin"
+            and _active_admin_count(org, user.id) == 0
+        ):
+            return JsonResponse(
+                {"detail": "A organização precisa manter pelo menos um gestor ativo."},
+                status=409,
+            )
+        member.role = role
+        member.save(update_fields=["role"])
+
+    if update_user_fields:
+        update_user_fields.append("updated_at")
+        user.save(update_fields=update_user_fields)
+
+    return JsonResponse(_serialize_member(org, member))
+
+
 @require_http_methods(["DELETE"])
 @org_admin_required
 def remove_member(request, slug, user_id):
     org = request.amplex_org
-    member = AmplexOrgMember.objects.filter(org=org, user_id=user_id).first()
-    if not member:
-        return JsonResponse({"detail": "Not found"}, status=404)
-
-    member.active = False
-    member.save(update_fields=["active"])
-    return JsonResponse({"removed": True})
+    body = json.loads(request.body or "{}")
+    payload, status = delete_org_member_user(
+        org=org,
+        user_id=user_id,
+        actor_user_id=request.amplex_user["user_id"],
+        payload=body,
+    )
+    return JsonResponse(payload, status=status)

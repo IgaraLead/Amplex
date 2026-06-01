@@ -26,12 +26,19 @@ def _parse_notification_id(notification_id):
 
 
 def _notification_state(*, due_at, date_deadline):
+    now = timezone.now()
     today = timezone.localdate()
-    due_date = timezone.localtime(due_at).date() if due_at else date_deadline
+    if due_at:
+        due_local = timezone.localtime(due_at)
+        if due_at < now:
+            return "overdue"
+        if due_local.date() == today:
+            return "today"
+        return "planned"
 
-    if due_date and due_date < today:
+    if date_deadline and date_deadline < today:
         return "overdue"
-    if due_date and due_date == today:
+    if date_deadline and date_deadline == today:
         return "today"
     return "planned"
 

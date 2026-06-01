@@ -88,6 +88,11 @@ urlpatterns = [
     path("id/<slug:slug>/org/members", orgs.list_members, name="org-members"),
     path("id/<slug:slug>/org/members/add", orgs.add_member, name="org-member-add"),
     path(
+        "id/<slug:slug>/org/members/<int:user_id>",
+        orgs.update_member,
+        name="org-member-update",
+    ),
+    path(
         "id/<slug:slug>/org/members/<int:user_id>/remove",
         orgs.remove_member,
         name="org-member-remove",
