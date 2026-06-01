@@ -627,6 +627,205 @@ class TestGlobalAdminAndSeats:
             org=org_b, user=created, role="admin", active=True
         ).exists()
 
+    def test_org_user_list_includes_data_counts(self, client, admin_ctx):
+        org = admin_ctx["org"]
+        stage = admin_ctx["stage"]
+        target = make_user(
+            name="Data Owner", email="data-owner@test.com", password="secret"
+        )
+        make_member(org=org, user=target, role="member")
+        lead = make_lead(org=org, name="Owned Lead", stage=stage, user=target)
+        Interaction.objects.create(lead=lead, author=target, body="Histórico")
+        Activity.objects.create(lead=lead, user=target, summary="Follow-up")
+
+        resp = client.get(f"/amplex/api/id/{org.slug}/crm/users")
+
+        assert resp.status_code == 200
+        data = resp.json()
+        item = next(row for row in data["items"] if row["id"] == target.id)
+        assert data["users"] == data["items"]
+        assert item["data_counts"] == {
+            "leads": 1,
+            "interactions": 1,
+            "activities": 1,
+            "total": 3,
+        }
+
+    def test_org_admin_updates_member_basic_fields_only(self, client, admin_ctx):
+        org = admin_ctx["org"]
+        target = make_user(
+            name="Editable Member", email="editable-member@test.com", password="secret"
+        )
+        make_member(org=org, user=target, role="member")
+
+        resp = client.put(
+            f"/amplex/api/id/{org.slug}/org/members/{target.id}",
+            data=json.dumps(
+                {
+                    "name": "Editable Updated",
+                    "email": "editable-updated@test.com",
+                    "role": "admin",
+                    "is_super_admin": True,
+                    "memberships": [],
+                    "password": "not-applied",
+                }
+            ),
+            content_type="application/json",
+        )
+
+        assert resp.status_code == 200
+        target.refresh_from_db()
+        member = AmplexOrgMember.objects.get(org=org, user=target)
+        assert target.name == "Editable Updated"
+        assert target.email == "editable-updated@test.com"
+        assert target.login == "editable-updated@test.com"
+        assert target.is_super_admin is False
+        assert member.role == "admin"
+
+    def test_regular_member_cannot_update_org_member(self, client, member_ctx):
+        org = member_ctx["org"]
+        target = make_user(
+            name="Other Member", email="other-member@test.com", password="secret"
+        )
+        make_member(org=org, user=target, role="member")
+
+        resp = client.put(
+            f"/amplex/api/id/{org.slug}/org/members/{target.id}",
+            data=json.dumps(
+                {"name": "Blocked", "email": target.email, "role": "admin"}
+            ),
+            content_type="application/json",
+        )
+
+        assert resp.status_code == 403
+
+    def test_org_admin_cannot_demote_last_admin(self, client, admin_ctx):
+        org = admin_ctx["org"]
+        admin = admin_ctx["user"]
+
+        resp = client.put(
+            f"/amplex/api/id/{org.slug}/org/members/{admin.id}",
+            data=json.dumps({"role": "member"}),
+            content_type="application/json",
+        )
+
+        assert resp.status_code == 409
+        assert AmplexOrgMember.objects.get(org=org, user=admin).role == "admin"
+
+    def test_delete_member_requires_data_action_when_user_has_data(
+        self, client, admin_ctx
+    ):
+        org = admin_ctx["org"]
+        stage = admin_ctx["stage"]
+        target = make_user(
+            name="Has Data", email="has-data@test.com", password="secret"
+        )
+        make_member(org=org, user=target, role="member")
+        lead = make_lead(org=org, name="Has Data Lead", stage=stage, user=target)
+        Interaction.objects.create(lead=lead, author=target, body="Histórico")
+        Activity.objects.create(lead=lead, user=target, summary="Follow-up")
+
+        resp = client.delete(
+            f"/amplex/api/id/{org.slug}/org/members/{target.id}/remove",
+            data=json.dumps({"data_action": "none"}),
+            content_type="application/json",
+        )
+
+        assert resp.status_code == 409
+        assert resp.json()["requires_data_action"] is True
+        assert AmplexOrgMember.objects.filter(org=org, user=target).exists()
+
+    def test_delete_member_migrates_data_and_deletes_orphan_user(
+        self, client, admin_ctx
+    ):
+        org = admin_ctx["org"]
+        stage = admin_ctx["stage"]
+        source = make_user(name="Source", email="source@test.com", password="secret")
+        target = make_user(name="Target", email="target@test.com", password="secret")
+        make_member(org=org, user=source, role="member")
+        make_member(org=org, user=target, role="member")
+        lead = make_lead(org=org, name="Migrated Lead", stage=stage, user=source)
+        interaction = Interaction.objects.create(
+            lead=lead, author=source, body="Histórico"
+        )
+        activity = Activity.objects.create(lead=lead, user=source, summary="Follow-up")
+
+        resp = client.delete(
+            f"/amplex/api/id/{org.slug}/org/members/{source.id}/remove",
+            data=json.dumps({"data_action": "migrate", "target_user_id": target.id}),
+            content_type="application/json",
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["user_deleted"] is True
+        assert not AmplexOrgMember.objects.filter(org=org, user=source).exists()
+        assert not AmplexUser.objects.filter(id=source.id).exists()
+        lead.refresh_from_db()
+        interaction.refresh_from_db()
+        activity.refresh_from_db()
+        assert lead.user_id == target.id
+        assert interaction.author_id == target.id
+        assert activity.user_id == target.id
+
+    def test_delete_member_deletes_selected_user_data(self, client, admin_ctx):
+        org = admin_ctx["org"]
+        stage = admin_ctx["stage"]
+        source = make_user(
+            name="Delete Source", email="delete-source@test.com", password="secret"
+        )
+        make_member(org=org, user=source, role="member")
+        source_lead = make_lead(org=org, name="Deleted Lead", stage=stage, user=source)
+        other_lead = make_lead(
+            org=org, name="Kept Lead", stage=stage, user=admin_ctx["user"]
+        )
+        Interaction.objects.create(lead=source_lead, author=source, body="Apaga")
+        remaining_interaction = Interaction.objects.create(
+            lead=other_lead, author=source, body="Apaga também"
+        )
+        remaining_activity = Activity.objects.create(
+            lead=other_lead, user=source, summary="Apaga atividade"
+        )
+
+        resp = client.delete(
+            f"/amplex/api/id/{org.slug}/org/members/{source.id}/remove",
+            data=json.dumps({"data_action": "delete"}),
+            content_type="application/json",
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["user_deleted"] is True
+        assert not Lead.objects.filter(id=source_lead.id).exists()
+        assert Lead.objects.filter(id=other_lead.id).exists()
+        assert not Interaction.objects.filter(id=remaining_interaction.id).exists()
+        assert not Activity.objects.filter(id=remaining_activity.id).exists()
+        assert not AmplexUser.objects.filter(id=source.id).exists()
+
+    def test_super_admin_can_delete_member_from_any_org(self, client, db):
+        org = make_org(name="Any Org", slug="any-org")
+        admin = make_user(
+            name="Admin Any", email="admin-any@test.com", password="secret"
+        )
+        target = make_user(
+            name="Any Target", email="any-target@test.com", password="secret"
+        )
+        super_admin = make_user(
+            name="Super Any", email="super-any@test.com", password="secret"
+        )
+        make_member(org=org, user=admin, role="admin")
+        make_member(org=org, user=target, role="member")
+        user_dict = mock_user_dict(super_admin, role="super_admin", is_super_admin=True)
+
+        with patch("api.auth_utils.get_current_user", return_value=(user_dict, None)):
+            resp = client.delete(
+                f"/amplex/api/id/{org.slug}/org/members/{target.id}/remove",
+                data=json.dumps({"data_action": "none"}),
+                content_type="application/json",
+            )
+
+        assert resp.status_code == 200
+        assert not AmplexOrgMember.objects.filter(org=org, user=target).exists()
+        assert not AmplexUser.objects.filter(id=target.id).exists()
+
     def test_global_admin_update_user_syncs_organizations(self, client, db):
         super_admin = make_user(
             name="Super", email="super7@test.com", password="secret"
@@ -660,7 +859,7 @@ class TestGlobalAdminAndSeats:
             )
             assert resp.status_code == 200
 
-        assert AmplexOrgMember.objects.get(org=org_a, user=target).active is False
+        assert not AmplexOrgMember.objects.filter(org=org_a, user=target).exists()
         assert AmplexOrgMember.objects.get(org=org_b, user=target).role == "admin"
         assert AmplexOrgMember.objects.get(org=org_c, user=target).active is True
 

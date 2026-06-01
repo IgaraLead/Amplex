@@ -124,8 +124,7 @@ def _sync_user_memberships(user: AmplexUser, memberships: list[dict]):
 
     for org_id, member in existing.items():
         if org_id not in desired_org_ids and member.active:
-            member.active = False
-            member.save(update_fields=["active"])
+            member.delete()
     return None
 
 

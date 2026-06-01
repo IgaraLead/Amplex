@@ -91,8 +91,11 @@ export function apiPut<T = unknown>(path: string, body: unknown) {
   return apiFetch<T>(path, { method: 'PUT', body: JSON.stringify(body) });
 }
 
-export function apiDelete(path: string) {
-  return apiFetch(path, { method: 'DELETE' });
+export function apiDelete(path: string, body?: unknown) {
+  return apiFetch(path, {
+    method: 'DELETE',
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
 }
 
 export async function apiUpload<T = unknown>(path: string, formData: FormData): Promise<T> {

@@ -1,12 +1,21 @@
-import { useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { GripVertical, Plus, Trash2 } from 'lucide-react';
+import { GripVertical, Pencil, Plus, Trash2 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -32,11 +41,18 @@ interface NamedItem {
   id: number;
   name: string;
 }
+interface UserDataCounts {
+  leads: number;
+  interactions: number;
+  activities: number;
+  total: number;
+}
 interface UserItem {
   id: number;
   name: string;
   email: string;
   role: string;
+  data_counts?: UserDataCounts;
 }
 interface CustomField {
   id: number;
@@ -53,6 +69,28 @@ interface PermissionUser {
   email: string;
   permissions: Record<string, boolean>;
 }
+interface DeleteUserPayload {
+  data_action: 'none' | 'migrate' | 'delete';
+  target_user_id?: number;
+}
+interface EditUserPayload {
+  name: string;
+  email: string;
+  role: 'admin' | 'member';
+}
+
+const formatUserDataCounts = (counts?: UserDataCounts) => {
+  if (!counts || counts.total === 0) {
+    return 'sem dados associados';
+  }
+  return `${counts.leads} leads/oportunidades, ${counts.interactions} interações, ${counts.activities} atividades`;
+};
+
+const formatUserRole = (role: string) => {
+  if (role === 'admin') return 'Admin';
+  if (role === 'member') return 'Agente';
+  return role;
+};
 
 function ListManager({
   title,
@@ -137,6 +175,16 @@ export default function Settings() {
   const [wonReasonName, setWonReasonName] = useState('');
   const [sourceName, setSourceName] = useState('');
   const [newUser, setNewUser] = useState({ name: '', email: '', password: '', role: 'agente' });
+  const [userToEdit, setUserToEdit] = useState<UserItem | null>(null);
+  const [editUserForm, setEditUserForm] = useState<EditUserPayload>({
+    name: '',
+    email: '',
+    role: 'member',
+  });
+  const [editUserError, setEditUserError] = useState('');
+  const [userToDelete, setUserToDelete] = useState<UserItem | null>(null);
+  const [deleteDataAction, setDeleteDataAction] = useState<'migrate' | 'delete'>('migrate');
+  const [deleteTargetUserId, setDeleteTargetUserId] = useState('');
   const [customField, setCustomField] = useState({
     name: '',
     field_type: 'text',
@@ -163,7 +211,7 @@ export default function Settings() {
     queryFn: () => apiGet('/crm/sources'),
     enabled: isAdmin,
   });
-  const { data: usersData } = useQuery<{ users: UserItem[] }>({
+  const { data: usersData } = useQuery<{ items?: UserItem[]; users?: UserItem[] }>({
     queryKey: ['crm-users'],
     queryFn: () => apiGet('/crm/users'),
     enabled: isAdmin,
@@ -254,8 +302,32 @@ export default function Settings() {
     onError: (err: Error) => addToast(err.message, 'error'),
   });
   const removeUser = useMutation({
-    mutationFn: (id: number) => apiDelete(`/org/members/${id}/remove`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crm-users'] }),
+    mutationFn: ({ id, body }: { id: number; body: DeleteUserPayload }) =>
+      apiDelete(`/org/members/${id}/remove`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm-users'] });
+      queryClient.invalidateQueries({ queryKey: ['permission-users'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['pipeline'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      setUserToDelete(null);
+      setUserToEdit(null);
+      setDeleteTargetUserId('');
+      addToast('Usuário excluído da organização', 'success');
+    },
+    onError: (err: Error) => addToast(err.message, 'error'),
+  });
+  const updateUser = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: EditUserPayload }) =>
+      apiPut(`/org/members/${id}`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm-users'] });
+      queryClient.invalidateQueries({ queryKey: ['permission-users'] });
+      setUserToEdit(null);
+      setEditUserError('');
+      addToast('Usuário atualizado', 'success');
+    },
+    onError: (err: Error) => setEditUserError(err.message),
   });
   const createCustomField = useMutation({
     mutationFn: (body: typeof customField) => apiPost('/crm/custom-fields', body),
@@ -280,8 +352,55 @@ export default function Settings() {
   });
 
   const stages = stagesData?.items ?? stagesData?.stages ?? [];
+  const users = usersData?.items ?? usersData?.users ?? [];
   const regularStages = stages.filter(stage => !stage.is_fixed);
   const fixedStages = stages.filter(stage => stage.is_fixed);
+  const userToDeleteHasData = Boolean(userToDelete?.data_counts?.total);
+  const deleteMigrationTargets = users.filter(item => item.id !== userToDelete?.id);
+  const canConfirmUserDelete =
+    !removeUser.isPending &&
+    Boolean(userToDelete) &&
+    (!userToDeleteHasData || deleteDataAction === 'delete' || Boolean(deleteTargetUserId));
+  const handleOpenEditUser = (item: UserItem) => {
+    setUserToEdit(item);
+    setEditUserForm({
+      name: item.name,
+      email: item.email,
+      role: item.role === 'admin' ? 'admin' : 'member',
+    });
+    setEditUserError('');
+  };
+  const handleOpenDeleteUser = (item: UserItem) => {
+    setUserToDelete(item);
+    setDeleteDataAction('migrate');
+    setDeleteTargetUserId('');
+  };
+  const handleSubmitEditUser = (event: FormEvent) => {
+    event.preventDefault();
+    if (!userToEdit) {
+      return;
+    }
+    updateUser.mutate({
+      id: userToEdit.id,
+      body: {
+        name: editUserForm.name.trim(),
+        email: editUserForm.email.trim().toLowerCase(),
+        role: editUserForm.role,
+      },
+    });
+  };
+  const handleConfirmDeleteUser = () => {
+    if (!userToDelete) {
+      return;
+    }
+    const body: DeleteUserPayload = userToDeleteHasData
+      ? {
+          data_action: deleteDataAction,
+          target_user_id: deleteDataAction === 'migrate' ? Number(deleteTargetUserId) : undefined,
+        }
+      : { data_action: 'none' };
+    removeUser.mutate({ id: userToDelete.id, body });
+  };
   const handleStageDrop = (targetStage: Stage) => {
     if (!draggingStageId || targetStage.is_fixed || draggingStageId === targetStage.id) {
       setDraggingStageId(null);
@@ -570,28 +689,34 @@ export default function Settings() {
                   <Button type="submit">Criar</Button>
                 </form>
                 <div className="space-y-2">
-                  {(usersData?.users ?? []).map(item => (
+                  {users.map(item => (
                     <div
                       key={item.id}
                       className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3"
                     >
                       <div>
                         <p className="font-medium">{item.name}</p>
-                        <p className="text-xs text-muted-foreground">{item.email}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.email} · {formatUserDataCounts(item.data_counts)}
+                        </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant="outline">{item.role}</Badge>
+                        <Badge variant="outline">{formatUserRole(item.role)}</Badge>
                         <Button
                           type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => removeUser.mutate(item.id)}
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenEditUser(item)}
                         >
-                          <Trash2 className="size-4 text-destructive" />
+                          <Pencil className="size-4" />
+                          Editar
                         </Button>
                       </div>
                     </div>
                   ))}
+                  {users.length === 0 && (
+                    <p className="text-sm text-muted-foreground">Nenhum usuário cadastrado.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -725,6 +850,176 @@ export default function Settings() {
           </TabsContent>
         )}
       </Tabs>
+
+      <Dialog open={Boolean(userToEdit)} onOpenChange={open => !open && setUserToEdit(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar usuário</DialogTitle>
+            <DialogDescription>
+              Atualize os dados básicos e o papel deste usuário na organização atual.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form id="edit-org-user-form" className="space-y-4" onSubmit={handleSubmitEditUser}>
+            <div className="space-y-2">
+              <Label htmlFor="edit-user-name">Nome</Label>
+              <Input
+                id="edit-user-name"
+                value={editUserForm.name}
+                onChange={event => setEditUserForm({ ...editUserForm, name: event.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-user-email">E-mail</Label>
+              <Input
+                id="edit-user-email"
+                type="email"
+                value={editUserForm.email}
+                onChange={event => setEditUserForm({ ...editUserForm, email: event.target.value })}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Papel na organização</Label>
+              <Select
+                value={editUserForm.role}
+                onValueChange={role =>
+                  setEditUserForm({
+                    ...editUserForm,
+                    role: role === 'admin' ? 'admin' : 'member',
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="member">Agente</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+              <p className="font-medium">Dados associados</p>
+              <p className="mt-1 text-muted-foreground">
+                {formatUserDataCounts(userToEdit?.data_counts)}
+              </p>
+            </div>
+
+            {editUserError && <p className="text-sm text-destructive">{editUserError}</p>}
+          </form>
+
+          <DialogFooter className="sm:justify-between">
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive hover:text-destructive"
+              disabled={userToEdit?.id === user?.user_id}
+              onClick={() => {
+                if (!userToEdit) {
+                  return;
+                }
+                handleOpenDeleteUser(userToEdit);
+                setUserToEdit(null);
+              }}
+            >
+              <Trash2 className="size-4" />
+              Excluir usuário
+            </Button>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+              <Button type="button" variant="outline" onClick={() => setUserToEdit(null)}>
+                Cancelar
+              </Button>
+              <Button type="submit" form="edit-org-user-form" disabled={updateUser.isPending}>
+                {updateUser.isPending ? 'Salvando...' : 'Salvar alterações'}
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(userToDelete)} onOpenChange={open => !open && setUserToDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir usuário</DialogTitle>
+            <DialogDescription>
+              {userToDelete
+                ? `Você está excluindo ${userToDelete.name} desta organização.`
+                : 'Confirme a exclusão do usuário.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+              <p className="font-medium">Dados associados</p>
+              <p className="mt-1 text-muted-foreground">
+                {formatUserDataCounts(userToDelete?.data_counts)}
+              </p>
+            </div>
+
+            {userToDeleteHasData && (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">O que fazer com esses dados?</p>
+                  <Select
+                    value={deleteDataAction}
+                    onValueChange={value =>
+                      setDeleteDataAction(value === 'delete' ? 'delete' : 'migrate')
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="migrate">Migrar para outro usuário</SelectItem>
+                      <SelectItem value="delete">Apagar junto com o usuário</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {deleteDataAction === 'migrate' && (
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Usuário de destino</p>
+                    <Select value={deleteTargetUserId} onValueChange={setDeleteTargetUserId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um usuário" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {deleteMigrationTargets.map(item => (
+                          <SelectItem key={item.id} value={String(item.id)}>
+                            {item.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {deleteMigrationTargets.length === 0 && (
+                      <p className="text-xs text-destructive">
+                        Crie ou mantenha outro usuário ativo para migrar estes dados.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setUserToDelete(null)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!canConfirmUserDelete}
+              onClick={handleConfirmDeleteUser}
+            >
+              {removeUser.isPending ? 'Excluindo...' : 'Excluir usuário'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
